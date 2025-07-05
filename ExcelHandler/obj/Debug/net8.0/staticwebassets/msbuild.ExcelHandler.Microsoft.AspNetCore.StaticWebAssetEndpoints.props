@@ -1,0 +1,16 @@
+﻿<Project>
+  <ItemGroup>
+    <StaticWebAssetEndpoint Include="_content/ExcelHandler/DownloadReport.4g5ol7pmwi.html">
+      <AssetFile>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\DownloadReport.html'))</AssetFile>
+      <Selectors><![CDATA[[]]]></Selectors>
+      <EndpointProperties><![CDATA[[{"Name":"fingerprint","Value":"4g5ol7pmwi"},{"Name":"integrity","Value":"sha256-bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8="},{"Name":"label","Value":"_content/ExcelHandler/DownloadReport.html"}]]]></EndpointProperties>
+      <ResponseHeaders><![CDATA[[{"Name":"Accept-Ranges","Value":"bytes"},{"Name":"Cache-Control","Value":"max-age=31536000, immutable"},{"Name":"Content-Length","Value":"12100"},{"Name":"Content-Type","Value":"text/html"},{"Name":"ETag","Value":"\u0022bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8=\u0022"},{"Name":"Last-Modified","Value":"Tue, 24 Jun 2025 10:50:00 GMT"}]]]></ResponseHeaders>
+    </StaticWebAssetEndpoint>
+    <StaticWebAssetEndpoint Include="_content/ExcelHandler/DownloadReport.html">
+      <AssetFile>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\DownloadReport.html'))</AssetFile>
+      <Selectors><![CDATA[[]]]></Selectors>
+      <EndpointProperties><![CDATA[[{"Name":"integrity","Value":"sha256-bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8="}]]]></EndpointProperties>
+      <ResponseHeaders><![CDATA[[{"Name":"Accept-Ranges","Value":"bytes"},{"Name":"Cache-Control","Value":"no-cache"},{"Name":"Content-Length","Value":"12100"},{"Name":"Content-Type","Value":"text/html"},{"Name":"ETag","Value":"\u0022bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8=\u0022"},{"Name":"Last-Modified","Value":"Tue, 24 Jun 2025 10:50:00 GMT"}]]]></ResponseHeaders>
+    </StaticWebAssetEndpoint>
+  </ItemGroup>
+</Project>

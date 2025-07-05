@@ -1,0 +1,39 @@
+{
+  "Version": 1,
+  "Hash": "t8GYyOCqe6EQen6FMs8SnjftN7wx/fyMXxy/c/3Q8fM=",
+  "Source": "ExcelHandler",
+  "BasePath": "_content/ExcelHandler",
+  "Mode": "Default",
+  "ManifestType": "Publish",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "ExcelHandler\\wwwroot",
+      "Source": "ExcelHandler",
+      "ContentRoot": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\wwwroot\\",
+      "BasePath": "_content/ExcelHandler",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "SourceId": "ExcelHandler",
+      "SourceType": "Discovered",
+      "ContentRoot": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\wwwroot\\",
+      "BasePath": "_content/ExcelHandler",
+      "RelativePath": "DownloadReport.html",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\DownloadReport.html"
+    }
+  ]
+}

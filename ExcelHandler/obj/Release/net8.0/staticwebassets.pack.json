@@ -1,0 +1,25 @@
+{
+  "Files": [
+    {
+      "Id": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "PackagePath": "staticwebassets\\DownloadReport.html"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\staticwebassets\\msbuild.ExcelHandler.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\staticwebassets\\msbuild.build.ExcelHandler.props",
+      "PackagePath": "build\\ExcelHandler.props"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.ExcelHandler.props",
+      "PackagePath": "buildMultiTargeting\\ExcelHandler.props"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\staticwebassets\\msbuild.buildTransitive.ExcelHandler.props",
+      "PackagePath": "buildTransitive\\ExcelHandler.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
