@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "osFA8FIC9yGn3gZqBY7bNzVGt2YdAe/t9iS/ye5/pDE=",
+  "Hash": "4VkenWe7Q8wSa3Af10ows1Fq/gV2XmrKrcaEHdRptdY=",
   "Source": "ExcelHandler",
   "BasePath": "_content/ExcelHandler",
   "Mode": "Default",
@@ -10,17 +10,17 @@
     {
       "Name": "ExcelHandler\\wwwroot",
       "Source": "ExcelHandler",
-      "ContentRoot": "C:\\WS8\\ExcelHandler (2)\\ExcelHandler\\ExcelHandler\\wwwroot\\",
+      "ContentRoot": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\",
       "BasePath": "_content/ExcelHandler",
       "Pattern": "**"
     }
   ],
   "Assets": [
     {
-      "Identity": "C:\\WS8\\ExcelHandler (2)\\ExcelHandler\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "Identity": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\DownloadReport.html",
       "SourceId": "ExcelHandler",
       "SourceType": "Discovered",
-      "ContentRoot": "C:\\WS8\\ExcelHandler (2)\\ExcelHandler\\ExcelHandler\\wwwroot\\",
+      "ContentRoot": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\",
       "BasePath": "_content/ExcelHandler",
       "RelativePath": "DownloadReport#[.{fingerprint}]?.html",
       "AssetKind": "All",
@@ -41,7 +41,7 @@
   "Endpoints": [
     {
       "Route": "DownloadReport.4g5ol7pmwi.html",
-      "AssetFile": "C:\\WS8\\ExcelHandler (2)\\ExcelHandler\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "AssetFile": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\DownloadReport.html",
       "Selectors": [],
       "ResponseHeaders": [
         {
@@ -86,7 +86,7 @@
     },
     {
       "Route": "DownloadReport.html",
-      "AssetFile": "C:\\WS8\\ExcelHandler (2)\\ExcelHandler\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "AssetFile": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\DownloadReport.html",
       "Selectors": [],
       "ResponseHeaders": [
         {

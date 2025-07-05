@@ -1,0 +1,780 @@
+IF OBJECT_ID('GenerateServiceEditView', 'P') IS NOT NULL
+    DROP PROCEDURE GenerateServiceEditView;
+GO
+CREATE PROCEDURE GenerateServiceEditView
+AS
+BEGIN
+    DECLARE @cols AS NVARCHAR(MAX) = N'',
+            @colsWithMax AS NVARCHAR(MAX) = N'',
+            @query AS NVARCHAR(MAX),
+            @ConsultationCount INT,
+            @ServiceCount INT;
+    -- Temporary table to store distinct cleaned service names
+    CREATE TABLE #DistinctServices (CleanedServiceName NVARCHAR(255));
+    -- Get service names directly from both MemberServicesDetails and MemberServices data
+    INSERT INTO #DistinctServices (CleanedServiceName)
+    SELECT DISTINCT
+        CASE
+            WHEN ServiceName IS NULL OR ServiceName = '' THEN N'_UnknownService'
+            ELSE N'_' + REPLACE(REPLACE(REPLACE(ServiceName, N' ', N'_'), N'-', N'_'), N'/', N'_')
+        END AS CleanedServiceName
+    FROM (
+        -- تم إزالة شرط MemberCode = '0' للحصول على جميع الخدمات
+        SELECT DISTINCT S.ServiceName
+        FROM dbo.MemberServices MSAD
+        JOIN dbo.Services S ON MSAD.ServiceID = S.ServiceID
+        WHERE S.ServiceName IS NOT NULL
+          AND S.ServiceName != ''
+        UNION
+        -- Get from MemberServicesDetails
+        SELECT DISTINCT MS.ServiceName
+        FROM dbo.MemberServicesDetails MS
+        WHERE MS.ServiceName IS NOT NULL AND MS.ServiceName != ''
+        UNION
+        -- Get from MemberServicesDetailsTracking
+        SELECT DISTINCT MST.ServiceName
+        FROM dbo.MemberServicesDetailsTracking MST
+        WHERE MST.ServiceName IS NOT NULL AND MST.ServiceName != ''
+    ) AS AllServiceNames;
+    
+    -- Get count for debugging
+    SELECT @ServiceCount = COUNT(*) FROM #DistinctServices;
+    
+    -- Build pivot columns using CURSOR (compatible with older SQL Server)
+    DECLARE @ServiceName NVARCHAR(255);
+    DECLARE service_cursor CURSOR FOR
+        SELECT CleanedServiceName FROM #DistinctServices;
+    OPEN service_cursor;
+    FETCH NEXT FROM service_cursor INTO @ServiceName;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        -- Build cols string
+        IF @cols = N''
+            SET @cols = QUOTENAME(@ServiceName);
+        ELSE
+            SET @cols = @cols + N', ' + QUOTENAME(@ServiceName);
+        -- Build colsWithMax string
+        IF @colsWithMax = N''
+            SET @colsWithMax = N'MAX(TRY_CAST(' + QUOTENAME(@ServiceName) + N' AS DECIMAL(18,2))) AS ' + QUOTENAME(@ServiceName);
+        ELSE
+            SET @colsWithMax = @colsWithMax + N', MAX(TRY_CAST(' + QUOTENAME(@ServiceName) + N' AS DECIMAL(18,2))) AS ' + QUOTENAME(@ServiceName);
+        FETCH NEXT FROM service_cursor INTO @ServiceName;
+    END;
+    CLOSE service_cursor;
+    DEALLOCATE service_cursor;
+    
+    -- Debug output
+    PRINT N'Services Count: ' + CAST(@ServiceCount AS NVARCHAR(10));
+    PRINT N'Found Services: ' + ISNULL(@cols, N'NO SERVICES FOUND');
+    
+    -- Add Arabic columns for view (not for PIVOT)
+    INSERT INTO #DistinctServices (CleanedServiceName)
+    VALUES (N'_رسوم_ممارس'), (N'_استمارة'), (N'_مشروع_علاجي'), (N'_تنميه_معاشات');
+    
+    -- Debug: Check ConsultationCollection data
+    SELECT @ConsultationCount = COUNT(*)
+    FROM dbo.ConsultationCollection
+    WHERE ConsultationCert IS NOT NULL OR RequestFees IS NOT NULL;
+    PRINT N'ConsultationCollection rows with relevant data: ' + CAST(@ConsultationCount AS NVARCHAR(10));
+    
+    -- Build dynamic query
+    SET @query = N'
+    CREATE OR ALTER VIEW dbo.ServiceEditView AS
+    SELECT
+        ReceiptID,
+        MAX(CAST(MemberCode AS NVARCHAR(100))) AS MemberCode,
+        MAX(CAST(MemberName AS NVARCHAR(200))) AS MemberName,
+        MAX(CAST(GovernrateName AS NVARCHAR(200))) AS GovernrateName,
+        MAX(CAST(BranchName AS NVARCHAR(100))) AS BranchName,
+        MAX(AddDate) AS AddDate,
+        MAX(CAST(StringAmount AS NVARCHAR(100))) AS StringAmount,
+        MAX(cancelled) AS cancelled,
+        MAX(FlagFundType) AS FlagFundType,
+        MAX(TRY_CAST([_كارنيه] AS DECIMAL(18,2))) AS [_كارنيه],
+        MAX(TRY_CAST([_سنوات_سابقه] AS DECIMAL(18,2))) AS [_سنوات_سابقه],
+        MAX(TRY_CAST([_العام_الحالى] AS DECIMAL(18,2))) AS [_العام_الحالى],
+        MAX(TRY_CAST([__انهاء_اجراءات] AS DECIMAL(18,2))) AS [__انهاء_اجراءات],
+        MAX(TRY_CAST([_تنميه_موارد] AS DECIMAL(18,2))) AS [_تنميه_موارد],
+        MAX(TRY_CAST([_مصروفات_اداريه] AS DECIMAL(18,2))) AS [_مصروفات_اداريه],
+        MAX(IsCurrentYear) AS IsCurrentYear,
+        MAX(TRY_CAST(_NextYearCalculation AS DECIMAL(18,2))) AS _NextYearCalculation,
+        MAX(TRY_CAST(_NextNextYearCalculation AS DECIMAL(18,2))) AS _NextNextYearCalculation,
+        MAX(TRY_CAST([_تسجيل_مركز] AS DECIMAL(18,2))) AS [_تسجيل_مركز],
+        MAX(TRY_CAST([_مبلغ_لدفعة_النقدية_المتقدمة] AS DECIMAL(18,2))) AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+        MAX(TRY_CAST([_دمغة_علاج_طبيعى] AS DECIMAL(18,2))) AS [_دمغة_علاج_طبيعى],
+        MAX(TRY_CAST([_رسوم_ممارس] AS DECIMAL(18,2))) AS [_رسوم_ممارس],
+        MAX(TRY_CAST([_استمارة] AS DECIMAL(18,2))) AS [_استمارة],
+        MAX(TRY_CAST([_تنميه_معاشات] AS DECIMAL(18,2))) AS [_تنميه_معاشات],
+        MAX(TRY_CAST([_مشروع_علاجي] AS DECIMAL(18,2))) AS [_مشروع_علاجي],
+        MAX(TRY_CAST([_غرامه_جمعيه_عمويه] AS DECIMAL(18,2))) AS [_غرامه_جمعيه_عمويه],
+        MAX(TRY_CAST([_غرامة_تسجيل] AS DECIMAL(18,2))) AS [_غرامة_تسجيل],
+        MAX(TRY_CAST([_اعاده_تسجيل] AS DECIMAL(18,2))) AS [_اعاده_تسجيل],
+        MAX(TRY_CAST([_شهادة_استشارى] AS DECIMAL(18,2))) AS [_شهادة_استشارى],
+        MAX(TRY_CAST([_تحويل_اخصائى] AS DECIMAL(18,2))) AS [_تحويل_اخصائى],
+        MAX(TRY_CAST([_تحويل_استشارى] AS DECIMAL(18,2))) AS [_تحويل_استشارى],
+        MAX(TRY_CAST([_رسم_القيد] AS DECIMAL(18,2))) AS [_رسم_القيد]' +
+    CASE
+        WHEN @colsWithMax IS NOT NULL AND LEN(@colsWithMax) > 0
+            THEN N', ' + @colsWithMax
+        ELSE N''
+    END + N'
+    FROM (
+        SELECT *
+        FROM (
+            -- Base data from MemberShipAnnualCollection
+            SELECT
+                MA.ReceiptNo AS ReceiptID,
+                MA.MemberCode,
+                MD.Name AS MemberName,
+                G.GovernrateName,
+                B.BranchName,
+                MA.Userdate AS AddDate,
+                TRY_CAST(NULL AS DECIMAL(18,2)) AS ServiceFee,
+                MA.StringAmount,
+                NULL AS ServiceName,
+                TRY_CAST(MA.Card AS DECIMAL(18, 2)) AS [_كارنيه],
+                TRY_CAST(MA.PreviousYearsAmount AS DECIMAL(18, 2)) AS [_سنوات_سابقه],
+                TRY_CAST(MA.CurrentYearCost AS DECIMAL(18, 2)) AS [_العام_الحالى],
+                TRY_CAST(MA.OtherPayment AS DECIMAL(18, 2)) AS [__انهاء_اجراءات],
+                TRY_CAST(MA.ResourceDevelopmentFees AS DECIMAL(18, 2)) AS [_تنميه_موارد],
+                TRY_CAST(MA.VisaFees AS DECIMAL(18, 2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+                NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس],
+                NULL AS [_استمارة],
+                NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي],
+                NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل],
+                NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى],
+                NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى],
+                TRY_CAST(MA.RegistrationFees AS DECIMAL(18, 2)) AS [_رسم_القيد],
+                CAST(0 AS INT) AS cancelled,
+                CAST(1 AS INT) AS FlagFundType,
+                MA.Serial AS [Serial],
+                MA.DateTo AS [DateTo],
+                MA.UserID AS [UserID],
+                CASE
+                    WHEN ISDATE(MA.DateTo) = 1
+                        AND TRY_CONVERT(DATE, MA.DateTo, 103) IS NOT NULL
+                        AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE())
+                    THEN 1
+                    ELSE 0
+                END AS [IsCurrentYear],
+                CASE
+                    WHEN ISDATE(MA.DateTo) = 1
+                        AND TRY_CONVERT(DATE, MA.DateTo, 103) IS NOT NULL
+                        AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE()) + 1
+                    THEN Ma.UpfrontYearCost                    
+               
+                    WHEN ISDATE(MA.DateTo) = 1
+                        AND TRY_CONVERT(DATE, MA.DateTo, 103) IS NOT NULL
+                        AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE()) + 2
+                    THEN Ma.UpfrontYearCost/2
+                    ELSE 0
+                END AS [_NextYearCalculation],
+                CASE
+                    WHEN ISDATE(MA.DateTo) = 1
+                        AND TRY_CONVERT(DATE, MA.DateTo, 103) IS NOT NULL
+                        AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE()) + 2
+                    THEN Ma.UpfrontYearCost/2
+                    ELSE 0
+                END AS [_NextNextYearCalculation]
+            FROM dbo.MemberShipAnnualCollection MA
+            LEFT JOIN dbo.MemberData MD ON MA.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MA.UserID = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            WHERE TotalAmount <> 0 Or TotalAmount is Not Null
+            ----Start Farouk MembershipANNualTracking---
+            UNION ALL
+            -- بيانات من MemberShipAnnualCollectionTracking
+            SELECT
+                MAT.ReceiptNo AS ReceiptID, MAT.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, MAT.Userdate AS AddDate,
+                TRY_CAST(NULL AS DECIMAL(18,2)) AS ServiceFee, MAT.StringAmount,
+                NULL AS ServiceName,
+                TRY_CAST(MAT.Card AS DECIMAL(18,2)) AS [_كارنيه],
+                TRY_CAST(MAT.PreviousYearsAmount AS DECIMAL(18,2)) AS [_سنوات_سابقه],
+                TRY_CAST(MAT.CurrentYearCost AS DECIMAL(18,2)) AS [_العام_الحالى],
+                TRY_CAST(MAT.OtherPayment AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
+                TRY_CAST(MAT.ResourceDevelopmentFees AS DECIMAL(18,2)) AS [_تنميه_موارد],
+                TRY_CAST(MAT.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل], NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى],
+                TRY_CAST(MAT.RegistrationFees AS DECIMAL(18,2)) AS [_رسم_القيد],
+                CAST(1 AS INT) AS cancelled, CAST(1 AS INT) AS FlagFundType,
+                MAT.Serial AS [Serial], MAT.DateTo AS [DateTo], MAT.UserID AS [UserID],
+                CASE WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
+                     AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE())
+                     THEN 1 ELSE 0 END AS [IsCurrentYear],
+                CASE WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
+                     AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 1
+                     THEN Mat.UpfrontYearCost
+
+					 WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
+                     AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
+                     THEN Mat.UpfrontYearCost/2
+                     ELSE 0 END AS [_NextYearCalculation],
+
+                CASE WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
+                     AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
+                     THEN Mat.UpfrontYearCost/2
+                     ELSE 0 END AS [_NextNextYearCalculation]
+            FROM dbo.MemberShipAnnualCollectionTracking MAT
+            LEFT JOIN dbo.MemberData MD ON MAT.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MAT.UserID = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            -----End Farouk MembershipANNualTracking---
+            UNION ALL
+            -- FIXED: Data from MemberServicesDetails
+            SELECT
+                MS.ReceiptID,
+                MS.MemberCode,
+                MD.Name AS MemberName,
+                G.GovernrateName,
+                B.BranchName,
+                MS.AddDate,
+                TRY_CAST(MS.ServiceFee AS DECIMAL(18,2)) AS ServiceFee,
+                MS.ServiceFeeString AS StringAmount,
+                N''_'' + REPLACE(REPLACE(REPLACE(MS.ServiceName, N'' '', N''_''), N''-'', N''_''), N''/'', N''_'') AS ServiceName,
+                NULL AS [_كارنيه],
+                NULL AS [_سنوات_سابقه],
+                NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات],
+                NULL AS [_تنميه_موارد],
+                NULL AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+                NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس],
+                NULL AS [_استمارة],
+                NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي],
+                NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل],
+                NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى],
+                NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى],
+                NULL AS [_رسم_القيد],
+                0 AS cancelled,
+                ISNULL(S.FundType, 1) AS FlagFundType,
+                NULL AS Serial,
+                NULL AS DateTo,
+                NULL AS UserID,
+                NULL AS IsCurrentYear,
+                NULL AS _NextYearCalculation,
+                NULL AS _NextNextYearCalculation
+            FROM dbo.MemberServicesDetails MS
+            LEFT JOIN dbo.Services S ON MS.ServiceID = S.ServiceID
+            LEFT JOIN dbo.MemberData MD ON MS.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MS.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            WHERE MS.ServiceName IS NOT NULL AND MS.ServiceName != ''''
+            UNION ALL
+            -- FIXED: Data from MemberServicesDetailsTracking
+            SELECT
+                MST.ReceiptID,
+                MST.MemberCode,
+                MD.Name AS MemberName,
+                G.GovernrateName,
+                B.BranchName,
+                MST.AddDate,
+                TRY_CAST(MST.ServiceFee AS DECIMAL(18,2)) AS ServiceFee,
+                MST.ServiceFeeString AS StringAmount,
+                N''_'' + REPLACE(REPLACE(REPLACE(MST.ServiceName, N'' '', N''_''), N''-'', N''_''), N''/'', N''_'') AS ServiceName,
+                NULL AS [_كارنيه],
+                NULL AS [_سنوات_سابقه],
+                NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات],
+                NULL AS [_تنميه_موارد],
+                NULL AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+                NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس],
+                NULL AS [_استمارة],
+                NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي],
+                NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل],
+                NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى],
+                NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى],
+                NULL AS [_رسم_القيد],
+                1 AS cancelled,
+                ISNULL(S.FundType, 1) AS FlagFundType,
+                NULL AS Serial,
+                NULL AS DateTo,
+                NULL AS UserID,
+                NULL AS IsCurrentYear,
+                NULL AS _NextYearCalculation,
+                NULL AS _NextNextYearCalculation
+            FROM dbo.MemberServicesDetailsTracking MST
+            LEFT JOIN dbo.Services S ON MST.ServiceID = S.ServiceID
+            LEFT JOIN dbo.MemberData MD ON MST.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MST.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            WHERE MST.ServiceName IS NOT NULL AND MST.ServiceName != ''''
+            UNION ALL
+            -- FIXED: بيانات من MemberServices - تم إزالة شرط MemberCode = ''0''
+            SELECT
+                MSAD.ReceiptID,
+                MSAD.MemberCode,
+                MSAD.MemberName,
+                G.GovernrateName,
+                B.BranchName,
+                MSAD.Adddate AS AddDate,
+                TRY_CAST(MSAD.ServiceFee AS DECIMAL(18,2)) AS ServiceFee,
+                MSAD.ServiceFeeString AS StringAmount,
+                N''_'' + REPLACE(REPLACE(REPLACE(S.ServiceName, N'' '', N''_''), N''-'', N''_''), N''/'', N''_'') AS ServiceName,
+                NULL AS [_كارنيه],
+                NULL AS [_سنوات_سابقه],
+                NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات],
+                NULL AS [_تنميه_موارد],
+                TRY_CAST(MSAD.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+                NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس],
+                NULL AS [_استمارة],
+                NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي],
+                NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل],
+                NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى],
+                NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى],
+                NULL AS [_رسم_القيد],
+                0 AS cancelled,
+                ISNULL(S.FundType, 1) AS FlagFundType,
+                NULL AS Serial,
+                NULL AS DateTo,
+                MSAD.AddUser AS UserID,
+                NULL AS IsCurrentYear,
+                NULL AS _NextYearCalculation,
+                NULL AS _NextNextYearCalculation
+            FROM [dbo].[MemberServices] MSAD
+            LEFT JOIN dbo.Services S ON MSAD.ServiceID = S.ServiceID
+            LEFT JOIN dbo.MemberData MD ON MSAD.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MSAD.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            WHERE S.ServiceName IS NOT NULL AND S.ServiceName != ''''
+            UNION ALL
+            -- بيانات من MemberRegisterCollection
+            SELECT
+                MRC.ReceiptID, MRC.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, MRC.Adddate AS AddDate,
+                NULL AS ServiceFee, MRC.RegisterfeesAmountString AS StringAmount,
+                NULL AS ServiceName,
+                TRY_CAST(MRC.Card AS DECIMAL(18,2)) AS [_كارنيه],
+                TRY_CAST(MRC.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
+                TRY_CAST(MRC.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
+                TRY_CAST(MRC.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
+                TRY_CAST(MRC.PensionsDevelopment AS DECIMAL(18,2)) AS [_تنميه_موارد],
+                NULL AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                TRY_CAST(MRC.PractitionerFee AS DECIMAL(18,2)) AS [_رسوم_ممارس],
+                TRY_CAST(MRC.Form AS DECIMAL(18,2)) AS [_استمارة],
+                NULL AS [_تنميه_معاشات],
+                TRY_CAST(MRC.MedicalProject AS DECIMAL(18,2)) AS [_مشروع_علاجي],
+                NULL AS [_غرامه_جمعيه_عمويه], NULL AS [_غرامة_تسجيل],
+                NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
+                0 AS cancelled, CAST(NULL AS INT) AS FlagFundType,
+                MRC.RegisterSerial AS Serial, MRC.GraduationYear AS DateTo, MRC.AddUser AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.MemberRegisterCollection MRC
+            LEFT JOIN dbo.MemberData MD ON MRC.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MRC.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من MemberRegisterCollectionDeleted
+            SELECT
+                MRCD.ReceiptID, MRCD.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, MRCD.Adddate AS AddDate,
+                NULL AS ServiceFee, MRCD.RegisterfeesAmountString AS StringAmount,
+                NULL AS ServiceName,
+                TRY_CAST(MRCD.Card AS DECIMAL(18,2)) AS [_كارنيه],
+                TRY_CAST(MRCD.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
+                TRY_CAST(MRCD.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
+                TRY_CAST(MRCD.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
+                TRY_CAST(MRCD.PensionsDevelopment AS DECIMAL(18,2)) AS [_تنميه_موارد],
+                NULL AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                TRY_CAST(MRCD.PractitionerFee AS DECIMAL(18,2)) AS [_رسوم_ممارس],
+                TRY_CAST(MRCD.Form AS DECIMAL(18,2)) AS [_استمارة],
+                NULL AS [_تنميه_معاشات],
+                TRY_CAST(MRCD.MedicalProject AS DECIMAL(18,2)) AS [_مشروع_علاجي],
+                NULL AS [_غرامه_جمعيه_عمويه], NULL AS [_غرامة_تسجيل],
+                NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
+                1 AS cancelled, CAST(NULL AS INT) AS FlagFundType,
+                MRCD.RegisterSerial AS Serial, MRCD.GraduationYear AS DateTo, MRCD.AddUser AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.MemberRegisterCollectionDeleted MRCD
+            LEFT JOIN dbo.MemberData MD ON MRCD.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MRCD.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من CenterAnnualCollection
+            SELECT
+                CAC.ReceiptNo AS ReceiptID, CAC.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, CAC.Userdate AS AddDate,
+                TRY_CAST(NULL AS DECIMAL(18,2)) AS ServiceFee, CAC.StringAmount,
+                NULL AS ServiceName,
+                NULL AS [_كارنيه], NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد],
+                TRY_CAST(CAC.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                TRY_CAST(CAC.AdvancedCashAmount AS DECIMAL(18,2)) AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+                TRY_CAST(CAC.YearCost AS DECIMAL(18,2)) AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل], NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
+                CAST(0 AS INT) AS cancelled, CAST(1 AS INT) AS FlagFundType,
+                NULL AS Serial, NULL AS DateTo, CAC.UserID AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.CenterAnnualCollection CAC
+            LEFT JOIN dbo.MemberData MD ON CAC.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Branch B ON CAC.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من CenterAnnualCollectionTracking
+            SELECT
+                CACT.ReceiptNo AS ReceiptID, CACT.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, CACT.Userdate AS AddDate,
+                TRY_CAST(NULL AS DECIMAL(18,2)) AS ServiceFee, CACT.StringAmount,
+                NULL AS ServiceName,
+                NULL AS [_كارنيه], NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد],
+                TRY_CAST(CACT.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                TRY_CAST(CACT.AdvancedCashAmount AS DECIMAL(18,2)) AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+                TRY_CAST(CACT.YearCost AS DECIMAL(18,2)) AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل], NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
+                CAST(1 AS INT) AS cancelled, CAST(1 AS INT) AS FlagFundType,
+                NULL AS Serial, NULL AS DateTo, CACT.UserID AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.CenterAnnualCollectionTracking CACT
+            LEFT JOIN dbo.MemberData MD ON CACT.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من ReRegistration
+            SELECT
+                RR.ReceiptID, M.MemberCode, RR.MemberName,
+                G.GovernrateName, B.BranchName, RR.AddDate,
+                NULL AS ServiceFee, RR.StringFees AS StringAmount,
+                NULL AS ServiceName,
+                TRY_CAST(RR.Card AS DECIMAL(18,2)) AS [_كارنيه],
+                TRY_CAST(RR.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
+                TRY_CAST(RR.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
+                TRY_CAST(RR.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
+                TRY_CAST(RR.ResourceDevelopmentFees AS DECIMAL(18,2)) AS [_تنميه_موارد],
+                TRY_CAST(RR.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي],
+                TRY_CAST(RR.GnrlAssociationFine AS DECIMAL(18,2)) AS [_غرامه_جمعيه_عمويه],
+                TRY_CAST(RR.Fine AS DECIMAL(18,2)) AS [_غرامة_تسجيل],
+                TRY_CAST(RR.ReRegistrationFees AS DECIMAL(18,2)) AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
+                0 AS cancelled, CAST(1 AS INT) AS FlagFundType,
+                NULL AS Serial, NULL AS DateTo, RR.AddUser AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.ReRegistration RR
+            LEFT JOIN dbo.MemberData M ON RR.MemberID = M.MemberID
+            LEFT JOIN dbo.Governorates G ON M.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON RR.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من ReRegistrationTracking
+            SELECT
+                RRT.ReceiptID, M.MemberCode, RRT.MemberName,
+                G.GovernrateName, B.BranchName, RRT.AddDate,
+                NULL AS ServiceFee, RRT.StringFees AS StringAmount,
+                NULL AS ServiceName,
+                TRY_CAST(RRT.Card AS DECIMAL(18,2)) AS [_كارنيه],
+                TRY_CAST(RRT.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
+                TRY_CAST(RRT.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
+                TRY_CAST(RRT.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
+                TRY_CAST(RRT.ResourceDevelopmentFees AS DECIMAL(18,2)) AS [_تنميه_موارد],
+                TRY_CAST(RRT.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي],
+                TRY_CAST(RRT.GnrlAssociationFine AS DECIMAL(18,2)) AS [_غرامه_جمعيه_عمويه],
+                TRY_CAST(RRT.Fine AS DECIMAL(18,2)) AS [_غرامة_تسجيل],
+                TRY_CAST(RRT.ReRegistrationFees AS DECIMAL(18,2)) AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
+                1 AS cancelled, CAST(1 AS INT) AS FlagFundType,
+                NULL AS Serial, NULL AS DateTo, RRT.AddUser AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.ReRegistrationTracking RRT
+            LEFT JOIN dbo.MemberData M ON RRT.MemberID = M.MemberID
+            LEFT JOIN dbo.Governorates G ON M.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON RRT.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من MedicalCenterRegistrationCollection
+            SELECT
+                MC.ReceiptID, MC.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, MC.AddDate,
+                TRY_CAST(MC.Fees AS DECIMAL(18,2)) AS ServiceFee,
+                MC.TotalString AS StringAmount,
+                NULL AS ServiceName,
+                NULL AS [_كارنيه], NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد], NULL AS [_مصروفات_اداريه],
+                TRY_CAST(MC.Fees AS DECIMAL(18,2)) AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل], NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
+                0 AS cancelled, CAST(NULL AS INT) AS FlagFundType,
+                NULL AS Serial, NULL AS DateTo, MC.AddUser AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.MedicalCenterRegistrationCollection MC
+            LEFT JOIN dbo.MemberData MD ON MC.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MC.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من ConsultationCollection
+            SELECT
+                CC.ReceiptID, CC.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, CC.AddDate,
+                NULL AS ServiceFee, CC.StringFees AS StringAmount,
+                NULL AS ServiceName,
+                TRY_CAST(CC.Card AS DECIMAL(18,2)) AS [_كارنيه],
+                NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
+                TRY_CAST(CC.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
+                NULL AS [_تنميه_موارد],
+                TRY_CAST(CC.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل], NULL AS [_اعاده_تسجيل],
+                CASE WHEN CC.MemberTypeID = 2 THEN TRY_CAST(CC.RequestFees AS DECIMAL(18,2)) ELSE NULL END AS [_تحويل_اخصائى],
+                CASE WHEN CC.MemberTypeID = 3 THEN TRY_CAST(CC.RequestFees AS DECIMAL(18,2)) ELSE NULL END AS [_تحويل_استشارى],
+                TRY_CAST(CC.ConsultationCert AS DECIMAL(18,2)) AS [_شهادة_استشارى],
+                NULL AS [_رسم_القيد],
+                0 AS cancelled, CAST(1 AS INT) AS FlagFundType,
+                NULL AS Serial, NULL AS DateTo, CC.AddUser AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.ConsultationCollection CC
+            LEFT JOIN dbo.MemberData MD ON CC.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON CC.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من ConsultationCollectionTracking
+            SELECT
+                CCT.ReceiptID, CCT.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, CCT.AddDate,
+                NULL AS ServiceFee, CCT.StringFees AS StringAmount,
+                NULL AS ServiceName,
+                TRY_CAST(CCT.Card AS DECIMAL(18,2)) AS [_كارنيه],
+                NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
+                TRY_CAST(CCT.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
+                NULL AS [_تنميه_موارد],
+                TRY_CAST(CCT.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل], NULL AS [_اعاده_تسجيل],
+                CASE WHEN CCT.MemberTypeID = 2 THEN TRY_CAST(CCT.RequestFees AS DECIMAL(18,2)) ELSE NULL END AS [_تحويل_اخصائى],
+                CASE WHEN CCT.MemberTypeID = 3 THEN TRY_CAST(CCT.RequestFees AS DECIMAL(18,2)) ELSE NULL END AS [_تحويل_استشارى],
+                TRY_CAST(CCT.ConsultationCert AS DECIMAL(18,2)) AS [_شهادة_استشارى],
+                NULL AS [_رسم_القيد],
+                1 AS cancelled, CAST(1 AS INT) AS FlagFundType,
+                NULL AS Serial, NULL AS DateTo, CCT.AddUser AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.ConsultationCollectionTracking CCT
+            LEFT JOIN dbo.MemberData MD ON CCT.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON CCT.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من MedicalCenterRegistrationCollectionTracking
+            SELECT
+                MCT.ReceiptID, MCT.MemberCode, MD.Name AS MemberName,
+                G.GovernrateName, B.BranchName, MCT.AddDate,
+                TRY_CAST(MCT.Fees AS DECIMAL(18,2)) AS ServiceFee,
+                MCT.TotalString AS StringAmount,
+                NULL AS ServiceName,
+                NULL AS [_كارنيه], NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد], NULL AS [_مصروفات_اداريه],
+                TRY_CAST(MCT.Fees AS DECIMAL(18,2)) AS [_تسجيل_مركز],
+                NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل], NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
+                1 AS cancelled, CAST(NULL AS INT) AS FlagFundType,
+                NULL AS Serial, NULL AS DateTo, MCT.AddUser AS UserID,
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+            FROM dbo.MedicalCenterRegistrationCollectionTracking MCT
+            LEFT JOIN dbo.MemberData MD ON MCT.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON MCT.AddUser = U.ID
+            LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من CenterAdvancedCash
+            SELECT
+                CAC.ReceiptNo AS ReceiptID,
+                CAC.MemberCode,
+                CAC.Name AS MemberName,
+                G.GovernrateName,
+                B.BranchName,
+                CAC.Userdate AS AddDate,
+                NULL AS ServiceFee,
+                CAC.StringAmount,
+                NULL AS ServiceName,
+                NULL AS [_كارنيه],
+                NULL AS [_سنوات_سابقه],
+                NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات],
+                NULL AS [_تنميه_موارد],
+                TRY_CAST(CAC.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                TRY_CAST(CAC.TotalAmount AS DECIMAL(18,2)) AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+                NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس],
+                NULL AS [_استمارة],
+                NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي],
+                NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل],
+                NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى],
+                NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى],
+                NULL AS [_رسم_القيد],
+                0 AS cancelled,
+                CAST(NULL AS INT) AS FlagFundType,
+                NULL AS Serial,
+                NULL AS DateTo,
+                CAC.UserID,
+                NULL AS IsCurrentYear,
+                NULL AS _NextYearCalculation,
+                NULL AS _NextNextYearCalculation
+            FROM dbo.CenterAdvancedCash CAC
+            LEFT JOIN dbo.MemberData MD ON CAC.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON CAC.UserID = U.ID
+            LEFT JOIN dbo.Branch B ON CAC.BranchID = B.BranchID
+            UNION ALL
+            -- بيانات من CenterAdvancedCashTracking
+            SELECT
+                CACT.ReceiptNo AS ReceiptID,
+                CACT.MemberCode,
+                CACT.Name AS MemberName,
+                G.GovernrateName,
+                B.BranchName,
+                CACT.Userdate AS AddDate,
+                NULL AS ServiceFee,
+                CACT.StringAmount,
+                NULL AS ServiceName,
+                NULL AS [_كارنيه],
+                NULL AS [_سنوات_سابقه],
+                NULL AS [_العام_الحالى],
+                NULL AS [__انهاء_اجراءات],
+                NULL AS [_تنميه_موارد],
+                TRY_CAST(CACT.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
+                NULL AS [_تسجيل_مركز],
+                TRY_CAST(CACT.TotalAmount AS DECIMAL(18,2)) AS [_مبلغ_لدفعة_النقدية_المتقدمة],
+                NULL AS [_دمغة_علاج_طبيعى],
+                NULL AS [_رسوم_ممارس],
+                NULL AS [_استمارة],
+                NULL AS [_تنميه_معاشات],
+                NULL AS [_مشروع_علاجي],
+                NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_غرامة_تسجيل],
+                NULL AS [_اعاده_تسجيل],
+                NULL AS [_تحويل_اخصائى],
+                NULL AS [_تحويل_استشارى],
+                NULL AS [_شهادة_استشارى],
+                NULL AS [_رسم_القيد],
+                1 AS cancelled,
+                CAST(NULL AS INT) AS FlagFundType,
+                NULL AS Serial,
+                NULL AS DateTo,
+                CACT.UserID,
+                NULL AS IsCurrentYear,
+                NULL AS _NextYearCalculation,
+                NULL AS _NextNextYearCalculation
+            FROM dbo.CenterAdvancedCashTracking CACT
+            LEFT JOIN dbo.MemberData MD ON CACT.MemberID = MD.MemberID
+            LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
+            LEFT JOIN dbo.Users U ON CACT.UserID = U.ID
+            LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
+        ) AS CombinedSourceData
+        PIVOT (
+            MAX(ServiceFee)
+            FOR ServiceName IN (' + ISNULL(@cols, N'[_NoServices]') + N')
+        ) AS PivotedResult
+    ) AS ConsolidatedData
+    GROUP BY ReceiptID;';
+    
+    -- Clean up temp table
+    DROP TABLE #DistinctServices;
+    
+    -- Debugging output
+    PRINT N'@cols value: ' + ISNULL(@cols, N'NULL');
+    PRINT N'@colsWithMax value: ' + ISNULL(LEFT(@colsWithMax, 200), N'NULL');
+    
+    -- Execute the dynamically built query
+    BEGIN TRY
+        EXEC sp_executesql @query;
+        PRINT N'View "ServiceEditView" created or updated successfully.';
+    END TRY
+    BEGIN CATCH
+        PRINT N'Error executing dynamic SQL: ' + ERROR_MESSAGE();
+        PRINT N'Dynamic SQL Preview: ' + LEFT(@query, 4000);
+    END CATCH
+END;
+GO
+
+-- تنفيذ الإجراء المخزن المصحح
+--EXEC GenerateServiceEditView;
+
+-- لاختبار النتائج
+--SELECT TOP 100 * FROM dbo.ServiceEditView;

@@ -6773,11 +6773,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\WS8\\ExcelHandler (2)\\ExcelHandler\\ExcelHandler\\ExcelHandler.csproj",
+      "projectUniqueName": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\ExcelHandler.csproj",
       "projectName": "ExcelHandler",
-      "projectPath": "C:\\WS8\\ExcelHandler (2)\\ExcelHandler\\ExcelHandler\\ExcelHandler.csproj",
+      "projectPath": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\ExcelHandler.csproj",
       "packagesPath": "C:\\Users\\Ahmed Farouk\\.nuget\\packages\\",
-      "outputPath": "C:\\WS8\\ExcelHandler (2)\\ExcelHandler\\ExcelHandler\\obj\\",
+      "outputPath": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files\\DevExpress 24.2\\Components\\Offline Packages",
