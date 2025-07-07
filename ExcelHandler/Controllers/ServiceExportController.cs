@@ -25,12 +25,10 @@ public class ServiceExportController : ControllerBase
         {
             if (number == 0)
                 return "صفر";
-
             if (number < 0)
                 return "سالب " + ToWords(Math.Abs(number));
 
             string words = "";
-
             long intPart = (long)number;
             decimal fractionPart = number - intPart;
 
@@ -42,10 +40,16 @@ public class ServiceExportController : ControllerBase
                 if (fractionalValue > 0)
                 {
                     if (!string.IsNullOrEmpty(words))
+                        words += " جنيها و ";
+                    else
                         words += " و ";
 
                     words += ConvertIntegerToWords(fractionalValue) + " قرشاً";
                 }
+            }
+            else if (!string.IsNullOrEmpty(words))
+            {
+                words += " جنيه";
             }
 
             return words.Trim();
@@ -55,9 +59,12 @@ public class ServiceExportController : ControllerBase
         {
             if (number == 0) return "";
 
-            string[] ones = { "", "واحد", "اثنان", "ثلاثة", "أربعة", "خمسة", "ستة", "سبعة", "ثمانية", "تسعة", "عشرة", "أحد عشر", "اثنا عشر", "ثلاثة عشر", "أربعة عشر", "خمسة عشر", "ستة عشر", "سبعة عشر", "ثمانية عشر", "تسعة عشر" };
+            string[] ones = { "", "واحد", "اثنان", "ثلاثة", "أربعة", "خمسة", "ستة", "سبعة", "ثمانية", "تسعة",
+                            "عشرة", "أحد عشر", "اثنا عشر", "ثلاثة عشر", "أربعة عشر", "خمسة عشر",
+                            "ستة عشر", "سبعة عشر", "ثمانية عشر", "تسعة عشر" };
             string[] tens = { "", "", "عشرون", "ثلاثون", "أربعون", "خمسون", "ستون", "سبعون", "ثمانون", "تسعون" };
-            string[] hundreds = { "", "مائة", "مائتان", "ثلاثمائة", "أربعمائة", "خمسمائة", "ستمائة", "سبعمائة", "ثمانمائة", "تسعمائة" };
+            string[] hundreds = { "", "مائة", "مائتان", "ثلاثمائة", "أربعمائة", "خمسمائة",
+                                "ستمائة", "سبعمائة", "ثمانمائة", "تسعمائة" };
 
             string words = "";
             bool needsWaw = false;
@@ -96,16 +103,23 @@ public class ServiceExportController : ControllerBase
             if (number > 0)
             {
                 if (needsWaw) words += " و ";
+
                 if (number < 20)
                 {
                     words += ones[number];
                 }
                 else
                 {
-                    words += tens[number / 10];
-                    if ((number % 10) > 0)
+                    int onesPart = (int)(number % 10);
+                    int tensPart = (int)(number / 10);
+
+                    if (onesPart > 0)
                     {
-                        words += " و " + ones[number % 10];
+                        words += ones[onesPart] + " و " + tens[tensPart];
+                    }
+                    else
+                    {
+                        words += tens[tensPart];
                     }
                 }
             }
@@ -114,6 +128,37 @@ public class ServiceExportController : ControllerBase
         }
     }
     #endregion
+
+    // Helper function to merge two columns into one
+    private static void MergeTwoColumns(DataTable dataTable, string columnName1, string columnName2, string newColumnName)
+    {
+        bool hasColumn1 = dataTable.Columns.Contains(columnName1);
+        bool hasColumn2 = dataTable.Columns.Contains(columnName2);
+
+        if (!hasColumn1 && !hasColumn2)
+        {
+            // Neither column exists, nothing to merge
+            return;
+        }
+
+        // Create new column if it doesn't exist
+        if (!dataTable.Columns.Contains(newColumnName))
+        {
+            dataTable.Columns.Add(newColumnName, typeof(decimal));
+        }
+
+        // Merge values
+        foreach (DataRow row in dataTable.Rows)
+        {
+            decimal value1 = hasColumn1 && row[columnName1] != DBNull.Value ? Convert.ToDecimal(row[columnName1]) : 0;
+            decimal value2 = hasColumn2 && row[columnName2] != DBNull.Value ? Convert.ToDecimal(row[columnName2]) : 0;
+            row[newColumnName] = value1 + value2;
+        }
+
+        // Remove old columns
+        if (hasColumn1) dataTable.Columns.Remove(columnName1);
+        if (hasColumn2) dataTable.Columns.Remove(columnName2);
+    }
 
     [HttpGet("export")]
     public async Task<IActionResult> ExportToExcel(
@@ -189,6 +234,11 @@ public class ServiceExportController : ControllerBase
                     }
                 }
             }
+
+            // --- 2.5: Merge required columns ---
+            MergeTwoColumns(dataTable, "_كارنية", "_كارنيه", "كارنية");
+            MergeTwoColumns(dataTable, "__انهاء_اجراءات", "_انهاء_اجراءات", "إنهاء إجراءات");
+            MergeTwoColumns(dataTable, "_مبلغ_لدفعة_النقدية_المتقدمة", "[_دمغة_علاج_طبيعى]", "دمغة علاج طبيعى");
 
             // --- 3. Sort and Prepare DataTable ---
             if (dataTable.Rows.Count > 0)
@@ -314,15 +364,39 @@ public class ServiceExportController : ControllerBase
 
             int colIndex = 12;
             var serviceColumns = new Dictionary<string, int>();
+
+            // قائمة الأعمدة المدمجة التي يجب أن تظهر في التقرير
+            var mergedColumnsToShow = new List<string> { "كارنية", "إنهاء إجراءات", "دمغة علاج طبيعى" };
+
             foreach (DataColumn column in dataTable.Columns)
             {
-                if (column.ColumnName.StartsWith("_") && dataTable.AsEnumerable().Any(r => r[column] != DBNull.Value && Convert.ToDouble(r[column]) > 0))
+                string columnName = column.ColumnName.Replace("\n", " ").Trim();
+                bool shouldInclude = false;
+
+                // تحقق إذا كان العمود من الأعمدة المدمجة أو يبدأ بشرطة سفلية
+                if (mergedColumnsToShow.Contains(columnName)
+                    || columnName.StartsWith("_"))
                 {
-                    string columnName = column.ColumnName.Replace("\n", " ").Trim();
-                    reportSheet.Cell(headerRow, colIndex).Value = columnName;
+                    // تحقق إذا كان العمود يحتوي على قيم موجبة
+                    if (dataTable.AsEnumerable().Any(r =>
+                        r[column] != DBNull.Value && Convert.ToDouble(r[column]) > 0))
+                    {
+                        shouldInclude = true;
+                    }
+                }
+
+                if (shouldInclude)
+                {
+                    // إزالة الشرطة الأولى من الاسم للعرض
+                    string displayName = columnName.StartsWith("_")
+                        ? columnName.Substring(1)
+                        : columnName;
+
+                    reportSheet.Cell(headerRow, colIndex).Value = displayName;
                     serviceColumns.Add(column.ColumnName, colIndex++);
                 }
             }
+
             int totalColIndex = colIndex;
             reportSheet.Cell(headerRow, totalColIndex).Value = "الإجمالى";
             reportSheet.Range(headerRow, 1, headerRow, totalColIndex).Style.Font.SetBold(true).Fill.SetBackgroundColor(XLColor.LightGray);
@@ -359,8 +433,9 @@ public class ServiceExportController : ControllerBase
                 // Use Tafkeet and add "(ملغى)" for cancelled receipts
                 string amountInWords = TafkeetHelper.ToWords(Convert.ToDecimal(rowTotal));
                 string amountText = isCancelled
-                    ? $"فقط {amountInWords} جنيه مصري لا غير (ملغى)"
-                    : $"فقط {amountInWords} جنيه مصري لا غير";
+                    ? $"فقط {amountInWords} مصري لا غير (ملغى)"
+                    : $"فقط {amountInWords} مصري لا غير";
+
                 reportSheet.Cell(currentRow, 7).Value = amountText;
 
                 // Populate cancellation status
@@ -448,6 +523,8 @@ public class ServiceExportController : ControllerBase
             return StatusCode(500, $"An error occurred during export: {ex.Message}");
         }
     }
+
+
 
     [HttpGet("DownloadReport")]
     public IActionResult DownloadReport()

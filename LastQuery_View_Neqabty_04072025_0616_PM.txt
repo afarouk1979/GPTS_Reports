@@ -108,7 +108,11 @@ BEGIN
         WHEN @colsWithMax IS NOT NULL AND LEN(@colsWithMax) > 0
             THEN N', ' + @colsWithMax
         ELSE N''
-    END + N'
+    END + N',
+        MAX(Printed) AS Printed,
+        MAX(DelUser) AS DelUser,
+        MAX(DelDate) AS DelDate,
+        MAX(FullName) AS FullName
     FROM (
         SELECT *
         FROM (
@@ -173,7 +177,11 @@ BEGIN
                         AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE()) + 2
                     THEN Ma.UpfrontYearCost/2
                     ELSE 0
-                END AS [_NextNextYearCalculation]
+                END AS [_NextNextYearCalculation],
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM dbo.MemberShipAnnualCollection MA
             LEFT JOIN dbo.MemberData MD ON MA.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
@@ -218,12 +226,17 @@ BEGIN
                 CASE WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
                      AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
                      THEN Mat.UpfrontYearCost/2
-                     ELSE 0 END AS [_NextNextYearCalculation]
+                     ELSE 0 END AS [_NextNextYearCalculation],
+                MAT.Printed AS Printed,
+                MAT.DelUser AS DelUser,
+                MAT.DelDate AS DelDate,
+                U_Del.FullName AS FullName
             FROM dbo.MemberShipAnnualCollectionTracking MAT
             LEFT JOIN dbo.MemberData MD ON MAT.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MAT.UserID = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Del ON MAT.DelUser = U_Del.ID
             UNION ALL
             SELECT
                 MS.ReceiptID,
@@ -263,7 +276,11 @@ BEGIN
                 NULL AS UserID,
                 NULL AS IsCurrentYear,
                 NULL AS _NextYearCalculation,
-                NULL AS _NextNextYearCalculation
+                NULL AS _NextNextYearCalculation,
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM dbo.MemberServicesDetails MS
             LEFT JOIN dbo.Services S ON MS.ServiceID = S.ServiceID
             LEFT JOIN dbo.MemberData MD ON MS.MemberID = MD.MemberID
@@ -310,13 +327,18 @@ BEGIN
                 NULL AS UserID,
                 NULL AS IsCurrentYear,
                 NULL AS _NextYearCalculation,
-                NULL AS _NextNextYearCalculation
+                NULL AS _NextNextYearCalculation,
+                MST.Printed AS Printed,
+                MST.DelUser AS DelUser,
+                MST.DelDate AS DelDate,
+                U_Del.FullName AS FullName
             FROM dbo.MemberServicesDetailsTracking MST
             LEFT JOIN dbo.Services S ON MST.ServiceID = S.ServiceID
             LEFT JOIN dbo.MemberData MD ON MST.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MST.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Del ON MST.DelUser = U_Del.ID
             WHERE MST.ServiceName IS NOT NULL AND MST.ServiceName != ''''
             UNION ALL
             SELECT
@@ -357,7 +379,11 @@ BEGIN
                 MSAD.AddUser AS UserID,
                 NULL AS IsCurrentYear,
                 NULL AS _NextYearCalculation,
-                NULL AS _NextNextYearCalculation
+                NULL AS _NextNextYearCalculation,
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM [dbo].[MemberServices] MSAD
             LEFT JOIN dbo.Services S ON MSAD.ServiceID = S.ServiceID
             LEFT JOIN dbo.MemberData MD ON MSAD.MemberID = MD.MemberID
@@ -390,7 +416,11 @@ BEGIN
                 NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
                 0 AS cancelled, CAST(NULL AS INT) AS FlagFundType,
                 MRC.RegisterSerial AS Serial, MRC.GraduationYear AS DateTo, MRC.AddUser AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM dbo.MemberRegisterCollection MRC
             LEFT JOIN dbo.MemberData MD ON MRC.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
@@ -421,12 +451,17 @@ BEGIN
                 NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
                 1 AS cancelled, CAST(NULL AS INT) AS FlagFundType,
                 MRCD.RegisterSerial AS Serial, MRCD.GraduationYear AS DateTo, MRCD.AddUser AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                MRCD.Printed AS Printed,
+                MRCD.DelUser AS DelUser,
+                MRCD.DelDate AS DelDate,
+                U_Del.FullName AS FullName
             FROM dbo.MemberRegisterCollectionDeleted MRCD
             LEFT JOIN dbo.MemberData MD ON MRCD.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MRCD.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Del ON MRCD.DelUser = U_Del.ID
             UNION ALL
             SELECT
                 CAC.ReceiptNo AS ReceiptID, CAC.MemberCode, MD.Name AS MemberName,
@@ -447,7 +482,11 @@ BEGIN
                 NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
                 CAST(0 AS INT) AS cancelled, CAST(1 AS INT) AS FlagFundType,
                 NULL AS Serial, NULL AS DateTo, CAC.UserID AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM dbo.CenterAnnualCollection CAC
             LEFT JOIN dbo.MemberData MD ON CAC.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
@@ -472,11 +511,16 @@ BEGIN
                 NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
                 CAST(1 AS INT) AS cancelled, CAST(1 AS INT) AS FlagFundType,
                 NULL AS Serial, NULL AS DateTo, CACT.UserID AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                CACT.Printed AS Printed,
+                CACT.DelUser AS DelUser,
+                CACT.DelDate AS DelDate,
+                U_Del.FullName AS FullName
             FROM dbo.CenterAnnualCollectionTracking CACT
             LEFT JOIN dbo.MemberData MD ON CACT.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Del ON CACT.DelUser = U_Del.ID
             UNION ALL
             SELECT
                 RR.ReceiptID, M.MemberCode, RR.MemberName,
@@ -501,7 +545,11 @@ BEGIN
                 NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
                 0 AS cancelled, CAST(1 AS INT) AS FlagFundType,
                 NULL AS Serial, NULL AS DateTo, RR.AddUser AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM dbo.ReRegistration RR
             LEFT JOIN dbo.MemberData M ON RR.MemberID = M.MemberID
             LEFT JOIN dbo.Governorates G ON M.GovernrateID = G.GovernrateID
@@ -531,12 +579,17 @@ BEGIN
                 NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
                 1 AS cancelled, CAST(1 AS INT) AS FlagFundType,
                 NULL AS Serial, NULL AS DateTo, RRT.AddUser AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                RRT.Printed AS Printed,
+                RRT.DelUser AS DelUser,
+                RRT.DelDate AS DelDate,
+                U_Del.FullName AS FullName
             FROM dbo.ReRegistrationTracking RRT
             LEFT JOIN dbo.MemberData M ON RRT.MemberID = M.MemberID
             LEFT JOIN dbo.Governorates G ON M.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON RRT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Del ON RRT.DelUser = U_Del.ID
             UNION ALL
             SELECT
                 MC.ReceiptID, MC.MemberCode, MD.Name AS MemberName,
@@ -559,7 +612,11 @@ BEGIN
                 NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
                 0 AS cancelled, CAST(NULL AS INT) AS FlagFundType,
                 NULL AS Serial, NULL AS DateTo, MC.AddUser AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM dbo.MedicalCenterRegistrationCollection MC
             LEFT JOIN dbo.MemberData MD ON MC.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
@@ -588,7 +645,11 @@ BEGIN
                 NULL AS [_رسم_القيد],
                 0 AS cancelled, CAST(1 AS INT) AS FlagFundType,
                 NULL AS Serial, NULL AS DateTo, CC.AddUser AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM dbo.ConsultationCollection CC
             LEFT JOIN dbo.MemberData MD ON CC.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
@@ -617,12 +678,17 @@ BEGIN
                 NULL AS [_رسم_القيد],
                 1 AS cancelled, CAST(1 AS INT) AS FlagFundType,
                 NULL AS Serial, NULL AS DateTo, CCT.AddUser AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                CCT.Printed AS Printed,
+                CCT.DelUser AS DelUser,
+                CCT.DelDate AS DelDate,
+                U_Del.FullName AS FullName
             FROM dbo.ConsultationCollectionTracking CCT
             LEFT JOIN dbo.MemberData MD ON CCT.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON CCT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Del ON CCT.DelUser = U_Del.ID
             UNION ALL
             SELECT
                 MCT.ReceiptID, MCT.MemberCode, MD.Name AS MemberName,
@@ -642,17 +708,22 @@ BEGIN
                 NULL AS [_شهادة_استشارى], NULL AS [_رسم_القيد],
                 1 AS cancelled, CAST(NULL AS INT) AS FlagFundType,
                 NULL AS Serial, NULL AS DateTo, MCT.AddUser AS UserID,
-                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation
+                NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
+                MCT.Printed AS Printed,
+                MCT.DelUser AS DelUser,
+                MCT.DelDate AS DelDate,
+                U_Del.FullName AS FullName
             FROM dbo.MedicalCenterRegistrationCollectionTracking MCT
             LEFT JOIN dbo.MemberData MD ON MCT.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MCT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Del ON MCT.DelUser = U_Del.ID
             UNION ALL
             SELECT
                 CAC.ReceiptNo AS ReceiptID,
                 CAC.MemberCode,
-                CAC.Name AS MemberName,
+                MD.Name AS MemberName,
                 G.GovernrateName,
                 B.BranchName,
                 CAC.Userdate AS AddDate,
@@ -687,7 +758,11 @@ BEGIN
                 CAC.UserID,
                 NULL AS IsCurrentYear,
                 NULL AS _NextYearCalculation,
-                NULL AS _NextNextYearCalculation
+                NULL AS _NextNextYearCalculation,
+                NULL AS Printed,
+                NULL AS DelUser,
+                NULL AS DelDate,
+                NULL AS FullName
             FROM dbo.CenterAdvancedCash CAC
             LEFT JOIN dbo.MemberData MD ON CAC.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
@@ -732,12 +807,17 @@ BEGIN
                 CACT.UserID,
                 NULL AS IsCurrentYear,
                 NULL AS _NextYearCalculation,
-                NULL AS _NextNextYearCalculation
+                NULL AS _NextNextYearCalculation,
+                CACT.Printed AS Printed,
+                CACT.DelUser AS DelUser,
+                CACT.DelDate AS DelDate,
+                U_Del.FullName AS FullName
             FROM dbo.CenterAdvancedCashTracking CACT
             LEFT JOIN dbo.MemberData MD ON CACT.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON CACT.UserID = U.ID
             LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Del ON CACT.DelUser = U_Del.ID
         ) AS CombinedSourceData
         PIVOT (
             MAX(ServiceFee)
@@ -761,9 +841,3 @@ BEGIN
     END CATCH
 END;
 GO
-
--- تنفيذ الإجراء المخزن المصحح
---EXEC GenerateServiceEditView;
-
--- لاختبار النتائج
---SELECT TOP 100 * FROM dbo.ServiceEditView;
