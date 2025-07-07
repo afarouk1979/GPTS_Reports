@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "3rTSdQStK5SgKaJ/MKeWFrSuIBDH5Qv1w/x4Fr76Slk=",
+  "Hash": "4VkenWe7Q8wSa3Af10ows1Fq/gV2XmrKrcaEHdRptdY=",
   "Source": "ExcelHandler",
   "BasePath": "_content/ExcelHandler",
   "Mode": "Default",
@@ -10,30 +10,116 @@
     {
       "Name": "ExcelHandler\\wwwroot",
       "Source": "ExcelHandler",
-      "ContentRoot": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\wwwroot\\",
+      "ContentRoot": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\",
       "BasePath": "_content/ExcelHandler",
       "Pattern": "**"
     }
   ],
   "Assets": [
     {
-      "Identity": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "Identity": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\DownloadReport.html",
       "SourceId": "ExcelHandler",
       "SourceType": "Discovered",
-      "ContentRoot": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\wwwroot\\",
+      "ContentRoot": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\",
       "BasePath": "_content/ExcelHandler",
-      "RelativePath": "DownloadReport.html",
+      "RelativePath": "DownloadReport#[.{fingerprint}]?.html",
       "AssetKind": "All",
       "AssetMode": "All",
       "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeBehavior": "",
       "AssetMergeSource": "",
       "RelatedAsset": "",
       "AssetTraitName": "",
       "AssetTraitValue": "",
+      "Fingerprint": "4g5ol7pmwi",
+      "Integrity": "bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8=",
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\DownloadReport.html"
+    }
+  ],
+  "Endpoints": [
+    {
+      "Route": "DownloadReport.4g5ol7pmwi.html",
+      "AssetFile": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "12100"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 24 Jun 2025 10:50:00 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "4g5ol7pmwi"
+        },
+        {
+          "Name": "label",
+          "Value": "DownloadReport.html"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8="
+        }
+      ]
+    },
+    {
+      "Route": "DownloadReport.html",
+      "AssetFile": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "12100"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 24 Jun 2025 10:50:00 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8="
+        }
+      ]
     }
   ]
 }

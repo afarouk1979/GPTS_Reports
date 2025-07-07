@@ -1,8 +1,12 @@
 {
   "Files": [
     {
-      "Id": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "Id": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\DownloadReport.html",
       "PackagePath": "staticwebassets\\DownloadReport.html"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\staticwebassets\\msbuild.ExcelHandler.Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssetEndpoints.props"
     },
     {
       "Id": "obj\\Release\\net8.0\\staticwebassets\\msbuild.ExcelHandler.Microsoft.AspNetCore.StaticWebAssets.props",

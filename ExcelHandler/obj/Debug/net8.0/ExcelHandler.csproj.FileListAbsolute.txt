@@ -1659,10 +1659,10 @@ C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\staticwebassets\m
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\staticwebassets\msbuild.buildMultiTargeting.ExcelHandler.props
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\staticwebassets\msbuild.buildTransitive.ExcelHandler.props
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\staticwebassets.pack.json
-C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\ExcelHan.7B9879D6.Up2Date
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\ExcelHandler.dll
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\refint\ExcelHandler.dll
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\ExcelHandler.pdb
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\ExcelHandler.genruntimeconfig.cache
 C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\ref\ExcelHandler.dll
+C:\WS8\GPTS_Reports\GPTS_Reports\ExcelHandler\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt

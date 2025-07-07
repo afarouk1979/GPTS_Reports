@@ -9,9 +9,9 @@ BEGIN
             @query AS NVARCHAR(MAX),
             @ConsultationCount INT,
             @ServiceCount INT;
-    -- Temporary table to store distinct cleaned service names
+    
     CREATE TABLE #DistinctServices (CleanedServiceName NVARCHAR(255));
-    -- Get service names directly from both MemberServicesDetails and MemberServices data
+    
     INSERT INTO #DistinctServices (CleanedServiceName)
     SELECT DISTINCT
         CASE
@@ -19,28 +19,22 @@ BEGIN
             ELSE N'_' + REPLACE(REPLACE(REPLACE(ServiceName, N' ', N'_'), N'-', N'_'), N'/', N'_')
         END AS CleanedServiceName
     FROM (
-        -- تم إزالة شرط MemberCode = '0' للحصول على جميع الخدمات
         SELECT DISTINCT S.ServiceName
         FROM dbo.MemberServices MSAD
         JOIN dbo.Services S ON MSAD.ServiceID = S.ServiceID
-        WHERE S.ServiceName IS NOT NULL
-          AND S.ServiceName != ''
+        WHERE S.ServiceName IS NOT NULL AND S.ServiceName != ''
         UNION
-        -- Get from MemberServicesDetails
         SELECT DISTINCT MS.ServiceName
         FROM dbo.MemberServicesDetails MS
         WHERE MS.ServiceName IS NOT NULL AND MS.ServiceName != ''
         UNION
-        -- Get from MemberServicesDetailsTracking
         SELECT DISTINCT MST.ServiceName
         FROM dbo.MemberServicesDetailsTracking MST
         WHERE MST.ServiceName IS NOT NULL AND MST.ServiceName != ''
     ) AS AllServiceNames;
     
-    -- Get count for debugging
     SELECT @ServiceCount = COUNT(*) FROM #DistinctServices;
     
-    -- Build pivot columns using CURSOR (compatible with older SQL Server)
     DECLARE @ServiceName NVARCHAR(255);
     DECLARE service_cursor CURSOR FOR
         SELECT CleanedServiceName FROM #DistinctServices;
@@ -48,36 +42,32 @@ BEGIN
     FETCH NEXT FROM service_cursor INTO @ServiceName;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        -- Build cols string
         IF @cols = N''
             SET @cols = QUOTENAME(@ServiceName);
         ELSE
             SET @cols = @cols + N', ' + QUOTENAME(@ServiceName);
-        -- Build colsWithMax string
+            
         IF @colsWithMax = N''
             SET @colsWithMax = N'MAX(TRY_CAST(' + QUOTENAME(@ServiceName) + N' AS DECIMAL(18,2))) AS ' + QUOTENAME(@ServiceName);
         ELSE
             SET @colsWithMax = @colsWithMax + N', MAX(TRY_CAST(' + QUOTENAME(@ServiceName) + N' AS DECIMAL(18,2))) AS ' + QUOTENAME(@ServiceName);
+            
         FETCH NEXT FROM service_cursor INTO @ServiceName;
     END;
     CLOSE service_cursor;
     DEALLOCATE service_cursor;
     
-    -- Debug output
     PRINT N'Services Count: ' + CAST(@ServiceCount AS NVARCHAR(10));
     PRINT N'Found Services: ' + ISNULL(@cols, N'NO SERVICES FOUND');
     
-    -- Add Arabic columns for view (not for PIVOT)
     INSERT INTO #DistinctServices (CleanedServiceName)
     VALUES (N'_رسوم_ممارس'), (N'_استمارة'), (N'_مشروع_علاجي'), (N'_تنميه_معاشات');
     
-    -- Debug: Check ConsultationCollection data
     SELECT @ConsultationCount = COUNT(*)
     FROM dbo.ConsultationCollection
     WHERE ConsultationCert IS NOT NULL OR RequestFees IS NOT NULL;
     PRINT N'ConsultationCollection rows with relevant data: ' + CAST(@ConsultationCount AS NVARCHAR(10));
     
-    -- Build dynamic query
     SET @query = N'
     CREATE OR ALTER VIEW dbo.ServiceEditView AS
     SELECT
@@ -90,6 +80,7 @@ BEGIN
         MAX(CAST(StringAmount AS NVARCHAR(100))) AS StringAmount,
         MAX(cancelled) AS cancelled,
         MAX(FlagFundType) AS FlagFundType,
+        MAX(TRY_CAST([_ملف_تراخيص__] AS DECIMAL(18,2))) AS [_ملف_تراخيص__],
         MAX(TRY_CAST([_كارنيه] AS DECIMAL(18,2))) AS [_كارنيه],
         MAX(TRY_CAST([_سنوات_سابقه] AS DECIMAL(18,2))) AS [_سنوات_سابقه],
         MAX(TRY_CAST([_العام_الحالى] AS DECIMAL(18,2))) AS [_العام_الحالى],
@@ -121,7 +112,6 @@ BEGIN
     FROM (
         SELECT *
         FROM (
-            -- Base data from MemberShipAnnualCollection
             SELECT
                 MA.ReceiptNo AS ReceiptID,
                 MA.MemberCode,
@@ -132,6 +122,7 @@ BEGIN
                 TRY_CAST(NULL AS DECIMAL(18,2)) AS ServiceFee,
                 MA.StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 TRY_CAST(MA.Card AS DECIMAL(18, 2)) AS [_كارنيه],
                 TRY_CAST(MA.PreviousYearsAmount AS DECIMAL(18, 2)) AS [_سنوات_سابقه],
                 TRY_CAST(MA.CurrentYearCost AS DECIMAL(18, 2)) AS [_العام_الحالى],
@@ -189,14 +180,13 @@ BEGIN
             LEFT JOIN dbo.Users U ON MA.UserID = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             WHERE TotalAmount <> 0 Or TotalAmount is Not Null
-            ----Start Farouk MembershipANNualTracking---
             UNION ALL
-            -- بيانات من MemberShipAnnualCollectionTracking
             SELECT
                 MAT.ReceiptNo AS ReceiptID, MAT.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, MAT.Userdate AS AddDate,
                 TRY_CAST(NULL AS DECIMAL(18,2)) AS ServiceFee, MAT.StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 TRY_CAST(MAT.Card AS DECIMAL(18,2)) AS [_كارنيه],
                 TRY_CAST(MAT.PreviousYearsAmount AS DECIMAL(18,2)) AS [_سنوات_سابقه],
                 TRY_CAST(MAT.CurrentYearCost AS DECIMAL(18,2)) AS [_العام_الحالى],
@@ -206,7 +196,7 @@ BEGIN
                 NULL AS [_تسجيل_مركز],
                 NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
                 NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
-                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_جمعيه_عمويه],
+                NULL AS [_مشروع_علاجي], NULL AS [_غرامه_ج collectيه_عمويه],
                 NULL AS [_غرامة_تسجيل], NULL AS [_اعاده_تسجيل],
                 NULL AS [_تحويل_اخصائى], NULL AS [_تحويل_استشارى],
                 NULL AS [_شهادة_استشارى],
@@ -234,9 +224,7 @@ BEGIN
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MAT.UserID = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
-            -----End Farouk MembershipANNualTracking---
             UNION ALL
-            -- FIXED: Data from MemberServicesDetails
             SELECT
                 MS.ReceiptID,
                 MS.MemberCode,
@@ -247,12 +235,13 @@ BEGIN
                 TRY_CAST(MS.ServiceFee AS DECIMAL(18,2)) AS ServiceFee,
                 MS.ServiceFeeString AS StringAmount,
                 N''_'' + REPLACE(REPLACE(REPLACE(MS.ServiceName, N'' '', N''_''), N''-'', N''_''), N''/'', N''_'') AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه],
                 NULL AS [_سنوات_سابقه],
                 NULL AS [_العام_الحالى],
                 NULL AS [__انهاء_اجراءات],
                 NULL AS [_تنميه_موارد],
-                NULL AS [_مصروفات_اداريه],
+                TRY_CAST(MS.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
                 NULL AS [_تسجيل_مركز],
                 NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة],
                 NULL AS [_دمغة_علاج_طبيعى],
@@ -283,7 +272,6 @@ BEGIN
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             WHERE MS.ServiceName IS NOT NULL AND MS.ServiceName != ''''
             UNION ALL
-            -- FIXED: Data from MemberServicesDetailsTracking
             SELECT
                 MST.ReceiptID,
                 MST.MemberCode,
@@ -294,12 +282,13 @@ BEGIN
                 TRY_CAST(MST.ServiceFee AS DECIMAL(18,2)) AS ServiceFee,
                 MST.ServiceFeeString AS StringAmount,
                 N''_'' + REPLACE(REPLACE(REPLACE(MST.ServiceName, N'' '', N''_''), N''-'', N''_''), N''/'', N''_'') AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه],
                 NULL AS [_سنوات_سابقه],
                 NULL AS [_العام_الحالى],
                 NULL AS [__انهاء_اجراءات],
                 NULL AS [_تنميه_موارد],
-                NULL AS [_مصروفات_اداريه],
+                TRY_CAST(MST.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
                 NULL AS [_تسجيل_مركز],
                 NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة],
                 NULL AS [_دمغة_علاج_طبيعى],
@@ -330,7 +319,6 @@ BEGIN
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             WHERE MST.ServiceName IS NOT NULL AND MST.ServiceName != ''''
             UNION ALL
-            -- FIXED: بيانات من MemberServices - تم إزالة شرط MemberCode = ''0''
             SELECT
                 MSAD.ReceiptID,
                 MSAD.MemberCode,
@@ -341,6 +329,7 @@ BEGIN
                 TRY_CAST(MSAD.ServiceFee AS DECIMAL(18,2)) AS ServiceFee,
                 MSAD.ServiceFeeString AS StringAmount,
                 N''_'' + REPLACE(REPLACE(REPLACE(S.ServiceName, N'' '', N''_''), N''-'', N''_''), N''/'', N''_'') AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه],
                 NULL AS [_سنوات_سابقه],
                 NULL AS [_العام_الحالى],
@@ -377,12 +366,12 @@ BEGIN
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             WHERE S.ServiceName IS NOT NULL AND S.ServiceName != ''''
             UNION ALL
-            -- بيانات من MemberRegisterCollection
             SELECT
                 MRC.ReceiptID, MRC.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, MRC.Adddate AS AddDate,
                 NULL AS ServiceFee, MRC.RegisterfeesAmountString AS StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 TRY_CAST(MRC.Card AS DECIMAL(18,2)) AS [_كارنيه],
                 TRY_CAST(MRC.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
                 TRY_CAST(MRC.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
@@ -408,12 +397,12 @@ BEGIN
             LEFT JOIN dbo.Users U ON MRC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من MemberRegisterCollectionDeleted
             SELECT
                 MRCD.ReceiptID, MRCD.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, MRCD.Adddate AS AddDate,
                 NULL AS ServiceFee, MRCD.RegisterfeesAmountString AS StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 TRY_CAST(MRCD.Card AS DECIMAL(18,2)) AS [_كارنيه],
                 TRY_CAST(MRCD.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
                 TRY_CAST(MRCD.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
@@ -439,12 +428,12 @@ BEGIN
             LEFT JOIN dbo.Users U ON MRCD.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من CenterAnnualCollection
             SELECT
                 CAC.ReceiptNo AS ReceiptID, CAC.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, CAC.Userdate AS AddDate,
                 TRY_CAST(NULL AS DECIMAL(18,2)) AS ServiceFee, CAC.StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه], NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
                 NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد],
                 TRY_CAST(CAC.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
@@ -464,12 +453,12 @@ BEGIN
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Branch B ON CAC.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من CenterAnnualCollectionTracking
             SELECT
                 CACT.ReceiptNo AS ReceiptID, CACT.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, CACT.Userdate AS AddDate,
                 TRY_CAST(NULL AS DECIMAL(18,2)) AS ServiceFee, CACT.StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه], NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
                 NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد],
                 TRY_CAST(CACT.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
@@ -489,12 +478,12 @@ BEGIN
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من ReRegistration
             SELECT
                 RR.ReceiptID, M.MemberCode, RR.MemberName,
                 G.GovernrateName, B.BranchName, RR.AddDate,
                 NULL AS ServiceFee, RR.StringFees AS StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 TRY_CAST(RR.Card AS DECIMAL(18,2)) AS [_كارنيه],
                 TRY_CAST(RR.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
                 TRY_CAST(RR.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
@@ -519,12 +508,12 @@ BEGIN
             LEFT JOIN dbo.Users U ON RR.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من ReRegistrationTracking
             SELECT
                 RRT.ReceiptID, M.MemberCode, RRT.MemberName,
                 G.GovernrateName, B.BranchName, RRT.AddDate,
                 NULL AS ServiceFee, RRT.StringFees AS StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 TRY_CAST(RRT.Card AS DECIMAL(18,2)) AS [_كارنيه],
                 TRY_CAST(RRT.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
                 TRY_CAST(RRT.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
@@ -549,15 +538,18 @@ BEGIN
             LEFT JOIN dbo.Users U ON RRT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من MedicalCenterRegistrationCollection
             SELECT
                 MC.ReceiptID, MC.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, MC.AddDate,
-                TRY_CAST(MC.Fees AS DECIMAL(18,2)) AS ServiceFee,
+                NULL AS ServiceFee,
                 MC.TotalString AS StringAmount,
+				
                 NULL AS ServiceName,
+				TRY_CAST(MC.[MedicalFile] AS DECIMAL(18,2)) AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه], NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
-                NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد], NULL AS [_مصروفات_اداريه],
+				TRY_CAST(MC.[ProceduresFees] AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
+				TRY_CAST(MC.[ResourceDevelopmentFees] AS DECIMAL(18,2)) AS [_تنميه_موارد],
+                TRY_CAST(MC.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
                 TRY_CAST(MC.Fees AS DECIMAL(18,2)) AS [_تسجيل_مركز],
                 NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
                 NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
@@ -574,12 +566,12 @@ BEGIN
             LEFT JOIN dbo.Users U ON MC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من ConsultationCollection
             SELECT
                 CC.ReceiptID, CC.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, CC.AddDate,
                 NULL AS ServiceFee, CC.StringFees AS StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 TRY_CAST(CC.Card AS DECIMAL(18,2)) AS [_كارنيه],
                 NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
                 TRY_CAST(CC.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
@@ -603,12 +595,12 @@ BEGIN
             LEFT JOIN dbo.Users U ON CC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من ConsultationCollectionTracking
             SELECT
                 CCT.ReceiptID, CCT.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, CCT.AddDate,
                 NULL AS ServiceFee, CCT.StringFees AS StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 TRY_CAST(CCT.Card AS DECIMAL(18,2)) AS [_كارنيه],
                 NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
                 TRY_CAST(CCT.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
@@ -632,15 +624,15 @@ BEGIN
             LEFT JOIN dbo.Users U ON CCT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من MedicalCenterRegistrationCollectionTracking
             SELECT
                 MCT.ReceiptID, MCT.MemberCode, MD.Name AS MemberName,
                 G.GovernrateName, B.BranchName, MCT.AddDate,
                 TRY_CAST(MCT.Fees AS DECIMAL(18,2)) AS ServiceFee,
                 MCT.TotalString AS StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه], NULL AS [_سنوات_سابقه], NULL AS [_العام_الحالى],
-                NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد], NULL AS [_مصروفات_اداريه],
+                NULL AS [__انهاء_اجراءات], NULL AS [_تنميه_موارد], TRY_CAST(MCT.VisaFees AS DECIMAL(18,2)) AS [_مصروفات_اداريه],
                 TRY_CAST(MCT.Fees AS DECIMAL(18,2)) AS [_تسجيل_مركز],
                 NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
                 NULL AS [_رسوم_ممارس], NULL AS [_استمارة], NULL AS [_تنميه_معاشات],
@@ -657,7 +649,6 @@ BEGIN
             LEFT JOIN dbo.Users U ON MCT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من CenterAdvancedCash
             SELECT
                 CAC.ReceiptNo AS ReceiptID,
                 CAC.MemberCode,
@@ -668,6 +659,7 @@ BEGIN
                 NULL AS ServiceFee,
                 CAC.StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه],
                 NULL AS [_سنوات_سابقه],
                 NULL AS [_العام_الحالى],
@@ -702,7 +694,6 @@ BEGIN
             LEFT JOIN dbo.Users U ON CAC.UserID = U.ID
             LEFT JOIN dbo.Branch B ON CAC.BranchID = B.BranchID
             UNION ALL
-            -- بيانات من CenterAdvancedCashTracking
             SELECT
                 CACT.ReceiptNo AS ReceiptID,
                 CACT.MemberCode,
@@ -713,6 +704,7 @@ BEGIN
                 NULL AS ServiceFee,
                 CACT.StringAmount,
                 NULL AS ServiceName,
+                NULL AS [_ملف_تراخيص__],
                 NULL AS [_كارنيه],
                 NULL AS [_سنوات_سابقه],
                 NULL AS [_العام_الحالى],
@@ -754,14 +746,11 @@ BEGIN
     ) AS ConsolidatedData
     GROUP BY ReceiptID;';
     
-    -- Clean up temp table
     DROP TABLE #DistinctServices;
     
-    -- Debugging output
     PRINT N'@cols value: ' + ISNULL(@cols, N'NULL');
     PRINT N'@colsWithMax value: ' + ISNULL(LEFT(@colsWithMax, 200), N'NULL');
     
-    -- Execute the dynamically built query
     BEGIN TRY
         EXEC sp_executesql @query;
         PRINT N'View "ServiceEditView" created or updated successfully.';

@@ -210,6 +210,41 @@ public class ServiceExportController : ControllerBase
                            "EmptyReport.xlsx");
             }
 
+            // --- 3.1 Process Cancellation Status ---
+            // حل المشكلة: تغيير نوع العمود قبل تعبئة القيم النصية
+            if (dataTable.Columns.Contains("cancelled") && dataTable.Columns.Contains("printed"))
+            {
+                // إنشاء عمود مؤقت من نوع السلسلة النصية
+                var tempCancelledColumn = new DataColumn("tempCancelled", typeof(string));
+                dataTable.Columns.Add(tempCancelledColumn);
+
+                foreach (DataRow row in dataTable.Rows)
+                {
+                    object cancelledValue = row["cancelled"];
+                    object printedValue = row["printed"];
+
+                    bool isCancelled = (cancelledValue != DBNull.Value) && Convert.ToInt32(cancelledValue) == 1;
+                    bool isPrinted = (printedValue != DBNull.Value) && Convert.ToInt32(printedValue) == 1;
+
+                    if (isCancelled)
+                    {
+                        if (isPrinted)
+                            row["tempCancelled"] = "الغاء بعد الطباعة";
+                        else
+                            row["tempCancelled"] = "محذوف قبل الطباعة";
+                    }
+                    else
+                    {
+                        row["tempCancelled"] = "لا";
+                    }
+                }
+
+                // إزالة العمود الأصلي وإعادة تسمية العمود المؤقت
+                dataTable.Columns.Remove("cancelled");
+                dataTable.Columns["tempCancelled"].ColumnName = "cancelled";
+            }
+            dataTable.Columns.Remove("printed");
+
             // Rename columns to Arabic.
             if (dataTable.Columns.Contains("MemberCode")) dataTable.Columns["MemberCode"].ColumnName = "رقم القيد";
             if (dataTable.Columns.Contains("ReceiptID")) dataTable.Columns["ReceiptID"].ColumnName = "رقم الايصال";
@@ -219,6 +254,10 @@ public class ServiceExportController : ControllerBase
             if (dataTable.Columns.Contains("BranchName")) dataTable.Columns["BranchName"].ColumnName = "الفرع";
             if (dataTable.Columns.Contains("GovernrateName")) dataTable.Columns["GovernrateName"].ColumnName = "المحافظة";
             if (dataTable.Columns.Contains("cancelled")) dataTable.Columns["cancelled"].ColumnName = "لاغى";
+            if (dataTable.Columns.Contains("DelUser")) dataTable.Columns["DelUser"].ColumnName = "الغاء بواسطة حساب";
+            if (dataTable.Columns.Contains("DelDate")) dataTable.Columns["DelDate"].ColumnName = "تاريخ الالغاء";
+            if (dataTable.Columns.Contains("FullName")) dataTable.Columns["FullName"].ColumnName = "الغاء بواسطة اسم";
+
             int nextYear = DateTime.Now.Year + 1;
             if (dataTable.Columns.Contains("_NextYearCalculation")) dataTable.Columns["_NextYearCalculation"].ColumnName = $"_اشتراك مقدم سنة{nextYear}";
             int nextNextYear = DateTime.Now.Year + 2;
@@ -247,17 +286,17 @@ public class ServiceExportController : ControllerBase
 
             reportSheet.Cell(1, 1).Value = "النقابه العامه للعلاج الطبيعى";
             reportSheet.Cell(1, 1).Style.Font.SetBold(true).Font.SetFontSize(14).Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
-            reportSheet.Range(1, 1, 1, 10).Merge();
+            reportSheet.Range(1, 1, 1, 12).Merge();
             string branchName = (dataTable.Rows.Count > 0 && dataTable.Columns.Contains("الفرع")) ? dataTable.Rows[0]["الفرع"]?.ToString() ?? "" : "";
             reportSheet.Cell(2, 1).Value = $"فرع/ {branchName}";
             reportSheet.Cell(2, 1).Style.Font.SetBold(true).Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
-            reportSheet.Range(2, 1, 2, 10).Merge();
+            reportSheet.Range(2, 1, 2, 12).Merge();
             string dateRangeText = "كشف حركه المتحصلات النقديه عن الفتره من ";
             if (startDate.HasValue && endDate.HasValue) dateRangeText += $"{startDate.Value:dd/MM/yyyy} الى {endDate.Value:dd/MM/yyyy}";
             else dateRangeText += "__________________ الى __________________";
             reportSheet.Cell(3, 1).Value = dateRangeText;
             reportSheet.Cell(3, 1).Style.Font.SetBold(true).Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-            reportSheet.Range(3, 1, 3, 10).Merge();
+            reportSheet.Range(3, 1, 3, 12).Merge();
 
             // --- 6. Build Report Table Headers ---
             int headerRow = 5;
@@ -269,8 +308,11 @@ public class ServiceExportController : ControllerBase
             reportSheet.Cell(headerRow, 6).Value = "المحافظة";
             reportSheet.Cell(headerRow, 7).Value = "القيمة فقط وقدرها";
             reportSheet.Cell(headerRow, 8).Value = "لاغى";
+            reportSheet.Cell(headerRow, 9).Value = "الغاء بواسطة حساب";
+            reportSheet.Cell(headerRow, 10).Value = "تاريخ الالغاء";
+            reportSheet.Cell(headerRow, 11).Value = "الغاء بواسطة اسم";
 
-            int colIndex = 9;
+            int colIndex = 12;
             var serviceColumns = new Dictionary<string, int>();
             foreach (DataColumn column in dataTable.Columns)
             {
@@ -289,7 +331,9 @@ public class ServiceExportController : ControllerBase
             int currentRow = headerRow + 1;
             foreach (DataRow dataRow in dataTable.Rows)
             {
-                bool isCancelled = dataRow["لاغى"] != DBNull.Value && Convert.ToInt32(dataRow["لاغى"]) != 0;
+                bool isCancelled = dataRow["لاغى"] != DBNull.Value &&
+                                  (dataRow["لاغى"].ToString() == "الغاء بعد الطباعة" ||
+                                   dataRow["لاغى"].ToString() == "محذوف قبل الطباعة");
 
                 // Calculate total for the row (including cancelled)
                 double rowTotal = 0;
@@ -319,8 +363,25 @@ public class ServiceExportController : ControllerBase
                     : $"فقط {amountInWords} جنيه مصري لا غير";
                 reportSheet.Cell(currentRow, 7).Value = amountText;
 
-                // Populate cancelled status
-                reportSheet.Cell(currentRow, 8).Value = isCancelled ? "نعم" : "لا";
+                // Populate cancellation status
+                reportSheet.Cell(currentRow, 8).Value = dataRow["لاغى"]?.ToString();
+
+                // Populate cancellation details only if cancelled
+                if (isCancelled)
+                {
+                    reportSheet.Cell(currentRow, 9).Value = dataRow["الغاء بواسطة حساب"]?.ToString();
+
+                    if (dataRow["تاريخ الالغاء"] is DateTime delDate)
+                    {
+                        reportSheet.Cell(currentRow, 10).Value = delDate.ToString("dd/MM/yyyy");
+                    }
+                    else
+                    {
+                        reportSheet.Cell(currentRow, 10).Value = dataRow["تاريخ الالغاء"]?.ToString();
+                    }
+
+                    reportSheet.Cell(currentRow, 11).Value = dataRow["الغاء بواسطة اسم"]?.ToString();
+                }
 
                 // Populate service columns with actual values (even for cancelled)
                 foreach (var service in serviceColumns)
@@ -352,14 +413,14 @@ public class ServiceExportController : ControllerBase
             int summaryRow = currentRow + 1;
             reportSheet.Cell(summaryRow, 1).Value = "الإجمالى";
             reportSheet.Cell(summaryRow, 1).Style.Font.SetBold(true);
-            reportSheet.Range(summaryRow, 1, summaryRow, 8).Merge().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            reportSheet.Range(summaryRow, 1, summaryRow, 11).Merge().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
             // Get column letters for criteria range (cancellation column)
             string criteriaColLetter = reportSheet.Column(8).ColumnLetter(); // Column H (لاغى)
             string criteriaRange = $"{criteriaColLetter}{headerRow + 1}:{criteriaColLetter}{currentRow - 1}";
 
             // Add SUMIFS formulas for numeric columns
-            for (int i = 9; i <= totalColIndex; i++)
+            for (int i = 12; i <= totalColIndex; i++)
             {
                 string colLetter = reportSheet.Column(i).ColumnLetter();
                 string dataRange = $"{colLetter}{headerRow + 1}:{colLetter}{currentRow - 1}";
