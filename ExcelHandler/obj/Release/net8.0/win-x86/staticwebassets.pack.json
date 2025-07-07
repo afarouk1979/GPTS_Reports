@@ -1,0 +1,29 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\wwwroot\\DownloadReport.html",
+      "PackagePath": "staticwebassets\\DownloadReport.html"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\win-x86\\staticwebassets\\msbuild.ExcelHandler.Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssetEndpoints.props"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\win-x86\\staticwebassets\\msbuild.ExcelHandler.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\win-x86\\staticwebassets\\msbuild.build.ExcelHandler.props",
+      "PackagePath": "build\\ExcelHandler.props"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\win-x86\\staticwebassets\\msbuild.buildMultiTargeting.ExcelHandler.props",
+      "PackagePath": "buildMultiTargeting\\ExcelHandler.props"
+    },
+    {
+      "Id": "obj\\Release\\net8.0\\win-x86\\staticwebassets\\msbuild.buildTransitive.ExcelHandler.props",
+      "PackagePath": "buildTransitive\\ExcelHandler.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

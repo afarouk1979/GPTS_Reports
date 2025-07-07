@@ -1,0 +1,88 @@
+{
+  "Version": 1,
+  "ManifestType": "Build",
+  "Endpoints": [
+    {
+      "Route": "DownloadReport.4g5ol7pmwi.html",
+      "AssetFile": "DownloadReport.html",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "12100"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 24 Jun 2025 10:50:00 GMT"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "4g5ol7pmwi"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8="
+        },
+        {
+          "Name": "label",
+          "Value": "DownloadReport.html"
+        }
+      ]
+    },
+    {
+      "Route": "DownloadReport.html",
+      "AssetFile": "DownloadReport.html",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "12100"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/html"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 24 Jun 2025 10:50:00 GMT"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-bA1wj6lAbVyrrDHDg2x9OTBUcgMdHATWlWTOSx7quq8="
+        }
+      ]
+    }
+  ]
+}

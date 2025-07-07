@@ -9170,23 +9170,26 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\moshax\\.nuget\\packages\\": {},
+    "C:\\Users\\Ahmed Farouk\\.nuget\\packages\\": {},
+    "C:\\Program Files\\DevExpress 24.2\\Components\\Offline Packages": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\ExcelHandler.csproj",
+      "projectUniqueName": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\ExcelHandler.csproj",
       "projectName": "ExcelHandler",
-      "projectPath": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\ExcelHandler.csproj",
-      "packagesPath": "C:\\Users\\moshax\\.nuget\\packages\\",
-      "outputPath": "F:\\WS_New\\NTS\\ExcelReports\\ExcelHandler\\ExcelHandler\\ExcelHandler\\obj\\publish\\win-x64\\",
+      "projectPath": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\ExcelHandler.csproj",
+      "packagesPath": "C:\\Users\\Ahmed Farouk\\.nuget\\packages\\",
+      "outputPath": "C:\\WS8\\GPTS_Reports\\GPTS_Reports\\ExcelHandler\\obj\\publish\\win-x64\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
+        "C:\\Program Files\\DevExpress 24.2\\Components\\Offline Packages",
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\moshax\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\Ahmed Farouk\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\DevExpress 24.2.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -9195,6 +9198,8 @@
       ],
       "sources": {
         "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "C:\\Program Files\\DevExpress 24.2\\Components\\System\\Components\\Packages": {},
+        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -9207,7 +9212,13 @@
         "warnAsError": [
           "NU1605"
         ]
-      }
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.200"
     },
     "frameworks": {
       "net8.0": {
@@ -9254,15 +9265,15 @@
         "downloadDependencies": [
           {
             "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
-            "version": "[8.0.1, 8.0.1]"
+            "version": "[8.0.13, 8.0.13]"
           },
           {
             "name": "Microsoft.NETCore.App.Runtime.win-x64",
-            "version": "[8.0.1, 8.0.1]"
+            "version": "[8.0.13, 8.0.13]"
           },
           {
             "name": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
-            "version": "[8.0.1, 8.0.1]"
+            "version": "[8.0.13, 8.0.13]"
           }
         ],
         "frameworkReferences": {
@@ -9273,7 +9284,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.101/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.200/PortableRuntimeIdentifierGraph.json"
       }
     },
     "runtimes": {
