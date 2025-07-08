@@ -114,32 +114,6 @@ public class ServiceExportController : ControllerBase
     }
     #endregion
 
-    // Helper function to merge two columns into one
-    //private static void MergeTwoColumns(DataTable dataTable, string columnName1, string columnName2, string newColumnName)
-    //{
-    //    bool hasColumn1 = dataTable.Columns.Contains(columnName1);
-    //    bool hasColumn2 = dataTable.Columns.Contains(columnName2);
-    //    if (!hasColumn1 && !hasColumn2)
-    //    {
-    //        // Neither column exists, nothing to merge
-    //        return;
-    //    }
-    //    // Create new column if it doesn't exist
-    //    if (!dataTable.Columns.Contains(newColumnName))
-    //    {
-    //        dataTable.Columns.Add(newColumnName, typeof(decimal));
-    //    }
-    //    // Merge values
-    //    foreach (DataRow row in dataTable.Rows)
-    //    {
-    //        decimal value1 = hasColumn1 && row[columnName1] != DBNull.Value ? Convert.ToDecimal(row[columnName1]) : 0;
-    //        decimal value2 = hasColumn2 && row[columnName2] != DBNull.Value ? Convert.ToDecimal(row[columnName2]) : 0;
-    //        row[newColumnName] = value1 + value2;
-    //    }
-    //    // Remove old columns
-    //    if (hasColumn1) dataTable.Columns.Remove(columnName1);
-    //    if (hasColumn2) dataTable.Columns.Remove(columnName2);
-    //}
     private static void MergeColumns(DataTable dataTable, string[] columnsToMerge, string newColumnName)
     {
         var existingColumns = columnsToMerge.Where(col => dataTable.Columns.Contains(col)).ToList();
@@ -175,11 +149,10 @@ public class ServiceExportController : ControllerBase
         }
     }
 
-    // New function to create the summary section at the bottom of the report
     private void CreateSummarySection(IXLWorksheet reportSheet, int summaryRow, Dictionary<string, int> serviceColumns,
         int headerRow, int currentRow, int totalColIndex, DataTable dataTable)
     {
-        // Define base columns for fund calculations (these will be divided between funds)
+        // Define base columns for fund calculations
         string[] baseColumns = {
             "_استمارة",
             "_NextNextYearCalculation",
@@ -196,6 +169,11 @@ public class ServiceExportController : ControllerBase
         int cancelledCount = 0;
         double validTotal = 0;
         double cancelledTotal = 0;
+
+        // For fund calculations
+        double baseTotal = 0;
+        double otherTotal = 0;
+        double pensionsTotal = 0;
 
         foreach (DataRow row in dataTable.Rows)
         {
@@ -225,6 +203,60 @@ public class ServiceExportController : ControllerBase
             {
                 validCount++;
                 validTotal += rowTotal;
+
+                // Check if this is a cash row (admin expenses zero/empty/null)
+                bool isCashRow = true;
+                if (dataTable.Columns.Contains("_مصروفات_اداريه"))
+                {
+                    object adminExpValue = row["_مصروفات_اداريه"];
+                    if (adminExpValue != DBNull.Value &&
+                        !string.IsNullOrWhiteSpace(adminExpValue.ToString()) &&
+                        Convert.ToDecimal(adminExpValue) != 0)
+                    {
+                        isCashRow = false;
+                    }
+                }
+
+                // Only accumulate funds for cash rows
+                if (isCashRow)
+                {
+                    foreach (var service in serviceColumns)
+                    {
+                        string columnName = service.Key;
+                        if (baseColumns.Any(bc => columnName.EndsWith(bc)))
+                        {
+                            if (row[columnName] != DBNull.Value)
+                            {
+                                baseTotal += Convert.ToDouble(row[columnName]);
+                            }
+                        }
+                    }
+
+                    foreach (var service in serviceColumns)
+                    {
+                        string columnName = service.Key;
+                        if (!baseColumns.Any(bc => columnName.EndsWith(bc)) &&
+                            !columnName.Contains("معاشات"))
+                        {
+                            if (row[columnName] != DBNull.Value)
+                            {
+                                otherTotal += Convert.ToDouble(row[columnName]);
+                            }
+                        }
+                    }
+
+                    foreach (var service in serviceColumns)
+                    {
+                        string columnName = service.Key;
+                        if (columnName.Contains("معاشات"))
+                        {
+                            if (row[columnName] != DBNull.Value)
+                            {
+                                pensionsTotal += Convert.ToDouble(row[columnName]);
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -256,77 +288,23 @@ public class ServiceExportController : ControllerBase
         reportSheet.Cell(cancelledSummaryRow + 3, 2).Value = validCount + cancelledCount;
         reportSheet.Cell(cancelledSummaryRow + 3, 3).Value = validTotal + cancelledTotal;
 
-        // SECTION 2: Fund Calculations
-        // Calculate Union Fund total (صندوق النقابة)
-        double baseTotal = 0;
-        foreach (var serviceKvp in serviceColumns)
-        {
-            string columnName = serviceKvp.Key;
-            if (baseColumns.Any(bc => columnName.EndsWith(bc)))
-            {
-                // Get the column range from the main data table
-                var colRange = reportSheet.Range(headerRow + 1, serviceKvp.Value, currentRow - 1, serviceKvp.Value);
-                foreach (var cell in colRange.Cells())
-                {
-                    if (!cell.IsEmpty() && double.TryParse(cell.Value.ToString(), out double val))
-                    {
-                        baseTotal += val;
-                    }
-                }
-            }
-        }
-
-        // Sum other service columns excluding base columns and pension columns
-        double otherTotal = 0;
-        foreach (var serviceKvp in serviceColumns)
-        {
-            string columnName = serviceKvp.Key;
-            if (!baseColumns.Any(bc => columnName.EndsWith(bc)) && !columnName.Contains("معاشات"))
-            {
-                var colRange = reportSheet.Range(headerRow + 1, serviceKvp.Value, currentRow - 1, serviceKvp.Value);
-                foreach (var cell in colRange.Cells())
-                {
-                    if (!cell.IsEmpty() && double.TryParse(cell.Value.ToString(), out double val))
-                    {
-                        otherTotal += val;
-                    }
-                }
-            }
-        }
-
-        // Calculate Pension Fund total (صندوق المعاشات)
-        double pensionsTotal = 0;
-        foreach (var serviceKvp in serviceColumns)
-        {
-            string columnName = serviceKvp.Key;
-            if (columnName.Contains("معاشات"))
-            {
-                var colRange = reportSheet.Range(headerRow + 1, serviceKvp.Value, currentRow - 1, serviceKvp.Value);
-                foreach (var cell in colRange.Cells())
-                {
-                    if (!cell.IsEmpty() && double.TryParse(cell.Value.ToString(), out double val))
-                    {
-                        pensionsTotal += val;
-                    }
-                }
-            }
-        }
-
-        // Union Fund calculation (صندوق النقابة)
+        // UNION FUND CALCULATION
         double unionFundTotal = (baseTotal / 2) + otherTotal;
         int unionFundRow = cancelledSummaryRow + 5;
         reportSheet.Cell(unionFundRow, 1).Value = "صندوق النقابه";
         reportSheet.Cell(unionFundRow, 1).Style.Font.SetBold(true);
+        reportSheet.Cell(unionFundRow, 2).Value = $"= ({string.Join(" + ", baseColumns.Select(c => c.TrimStart('_')))}) / 2 + البنود المتبقية ماعدا بنود المعاشات";
         reportSheet.Range(unionFundRow, 1, unionFundRow, totalColIndex - 1).Merge();
         reportSheet.Cell(unionFundRow, totalColIndex).Value = unionFundTotal;
         reportSheet.Cell(unionFundRow, totalColIndex).Style.Font.SetBold(true);
         reportSheet.Range(unionFundRow, 1, unionFundRow, totalColIndex).Style.Border.SetOutsideBorder(XLBorderStyleValues.Medium);
 
-        // Pension Fund calculation (صندوق المعاشات)
+        // PENSION FUND CALCULATION
         double pensionFundTotal = (baseTotal / 2) + pensionsTotal;
         int pensionFundRow = unionFundRow + 1;
         reportSheet.Cell(pensionFundRow, 1).Value = "صندوق المعاشات";
         reportSheet.Cell(pensionFundRow, 1).Style.Font.SetBold(true);
+        reportSheet.Cell(pensionFundRow, 2).Value = $"= ({string.Join(" + ", baseColumns.Select(c => c.TrimStart('_')))}) / 2 + (تنميه معاشات + تسويه سلفه معاشات + دعم صندوق المعاشات) + أي بند يذكر فيه كلمة معاشات";
         reportSheet.Range(pensionFundRow, 1, pensionFundRow, totalColIndex - 1).Merge();
         reportSheet.Cell(pensionFundRow, totalColIndex).Value = pensionFundTotal;
         reportSheet.Cell(pensionFundRow, totalColIndex).Style.Font.SetBold(true);
@@ -432,10 +410,8 @@ public class ServiceExportController : ControllerBase
                            "EmptyReport.xlsx");
             }
             // --- 3.1 Process Cancellation Status ---
-            // حل المشكلة: تغيير نوع العمود قبل تعبئة القيم النصية
             if (dataTable.Columns.Contains("cancelled") && dataTable.Columns.Contains("printed"))
             {
-                // إنشاء عمود مؤقت من نوع السلسلة النصية
                 var tempCancelledColumn = new DataColumn("tempCancelled", typeof(string));
                 dataTable.Columns.Add(tempCancelledColumn);
                 foreach (DataRow row in dataTable.Rows)
@@ -456,7 +432,6 @@ public class ServiceExportController : ControllerBase
                         row["tempCancelled"] = "لا";
                     }
                 }
-                // إزالة العمود الأصلي وإعادة تسمية العمود المؤقت
                 dataTable.Columns.Remove("cancelled");
                 dataTable.Columns["tempCancelled"].ColumnName = "cancelled";
             }
@@ -522,17 +497,14 @@ public class ServiceExportController : ControllerBase
             reportSheet.Cell(headerRow, 11).Value = "الغاء بواسطة اسم";
             int colIndex = 12;
             var serviceColumns = new Dictionary<string, int>();
-            // قائمة الأعمدة المدمجة التي يجب أن تظهر في التقرير
-            var mergedColumnsToShow = new List<string> { "كارنية","رسم القيد", "إنهاء إجراءات", "دمغة علاج طبيعى" };
+            var mergedColumnsToShow = new List<string> { "كارنية", "رسم القيد", "إنهاء إجراءات", "دمغة علاج طبيعى" };
             foreach (DataColumn column in dataTable.Columns)
             {
                 string columnName = column.ColumnName.Replace("\n", " ").Trim();
                 bool shouldInclude = false;
-                // تحقق إذا كان العمود من الأعمدة المدمجة أو يبدأ بشرطة سفلية
                 if (mergedColumnsToShow.Contains(columnName)
                     || columnName.StartsWith("_"))
                 {
-                    // تحقق إذا كان العمود يحتوي على قيم موجبة
                     if (dataTable.AsEnumerable().Any(r =>
                         r[column] != DBNull.Value && Convert.ToDouble(r[column]) > 0))
                     {
@@ -541,7 +513,6 @@ public class ServiceExportController : ControllerBase
                 }
                 if (shouldInclude)
                 {
-                    // إزالة الشرطة الأولى من الاسم للعرض
                     string displayName = columnName.StartsWith("_")
                         ? columnName.Substring(1)
                         : columnName;
@@ -551,7 +522,16 @@ public class ServiceExportController : ControllerBase
             }
             int totalColIndex = colIndex;
             reportSheet.Cell(headerRow, totalColIndex).Value = "الإجمالى";
-            reportSheet.Range(headerRow, 1, headerRow, totalColIndex).Style.Font.SetBold(true).Fill.SetBackgroundColor(XLColor.LightGray);
+
+            // Add Cash Total Column
+            int cashTotalColIndex = totalColIndex + 1;
+            reportSheet.Cell(headerRow, cashTotalColIndex).Value = "إجمالى الكاش";
+
+            // Add Visa Total Column
+            int visaTotalColIndex = cashTotalColIndex + 1;
+            reportSheet.Cell(headerRow, visaTotalColIndex).Value = "إجمالى الفيزا";
+
+            reportSheet.Range(headerRow, 1, headerRow, visaTotalColIndex).Style.Font.SetBold(true).Fill.SetBackgroundColor(XLColor.LightGray);
             // --- 7. Populate Report Data with Tafkeet ---
             int currentRow = headerRow + 1;
             foreach (DataRow dataRow in dataTable.Rows)
@@ -559,7 +539,7 @@ public class ServiceExportController : ControllerBase
                 bool isCancelled = dataRow["لاغى"] != DBNull.Value &&
                                   (dataRow["لاغى"].ToString() == "الغاء بعد الطباعة" ||
                                    dataRow["لاغى"].ToString() == "محذوف قبل الطباعة");
-                // Calculate total for the row (including cancelled)
+                // Calculate total for the row
                 double rowTotal = 0;
                 foreach (var service in serviceColumns.Keys)
                 {
@@ -600,7 +580,7 @@ public class ServiceExportController : ControllerBase
                     }
                     reportSheet.Cell(currentRow, 11).Value = dataRow["الغاء بواسطة اسم"]?.ToString();
                 }
-                // Populate service columns with actual values (even for cancelled)
+                // Populate service columns with actual values
                 foreach (var service in serviceColumns)
                 {
                     if (dataRow[service.Key] != DBNull.Value && double.TryParse(dataRow[service.Key].ToString(), out double value))
@@ -614,10 +594,38 @@ public class ServiceExportController : ControllerBase
                 }
                 // Populate the total column with actual total
                 reportSheet.Cell(currentRow, totalColIndex).Value = rowTotal;
+
+                // Calculate Cash and Visa totals
+                double cashTotal = 0;
+                double visaTotal = 0;
+                if (!isCancelled)
+                {
+                    bool isCashRow = true;
+                    if (dataTable.Columns.Contains("_مصروفات_اداريه"))
+                    {
+                        object adminExpValue = dataRow["_مصروفات_اداريه"];
+                        if (adminExpValue != DBNull.Value &&
+                            !string.IsNullOrWhiteSpace(adminExpValue.ToString()) &&
+                            Convert.ToDecimal(adminExpValue) != 0)
+                        {
+                            isCashRow = false;
+                        }
+                    }
+                    if (isCashRow)
+                    {
+                        cashTotal = rowTotal;
+                    }
+                    else
+                    {
+                        visaTotal = rowTotal;
+                    }
+                }
+                reportSheet.Cell(currentRow, cashTotalColIndex).Value = cashTotal;
+                reportSheet.Cell(currentRow, visaTotalColIndex).Value = visaTotal;
                 // Apply formatting for cancelled rows
                 if (isCancelled)
                 {
-                    reportSheet.Range(currentRow, 1, currentRow, totalColIndex).Style.Fill.SetBackgroundColor(XLColor.LightPink);
+                    reportSheet.Range(currentRow, 1, currentRow, visaTotalColIndex).Style.Fill.SetBackgroundColor(XLColor.LightPink);
                     reportSheet.Cell(currentRow, 8).Style.Font.SetFontColor(XLColor.Red);
                 }
                 currentRow++;
@@ -627,16 +635,24 @@ public class ServiceExportController : ControllerBase
             reportSheet.Cell(summaryRow, 1).Value = "الإجمالى";
             reportSheet.Cell(summaryRow, 1).Style.Font.SetBold(true);
             reportSheet.Range(summaryRow, 1, summaryRow, 11).Merge().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-            // Get column letters for criteria range (cancellation column)
+            // Get column letters for criteria range
             string criteriaColLetter = reportSheet.Column(8).ColumnLetter(); // Column H (لاغى)
             string criteriaRange = $"{criteriaColLetter}{headerRow + 1}:{criteriaColLetter}{currentRow - 1}";
             // Add SUMIFS formulas for numeric columns
-            for (int i = 12; i <= totalColIndex; i++)
+            for (int i = 12; i <= visaTotalColIndex; i++)
             {
                 string colLetter = reportSheet.Column(i).ColumnLetter();
                 string dataRange = $"{colLetter}{headerRow + 1}:{colLetter}{currentRow - 1}";
-                // SUMIFS to include only non-cancelled rows
-                reportSheet.Cell(summaryRow, i).FormulaA1 = $"SUMIFS({dataRange}, {criteriaRange}, \"لا\")";
+                if (i == cashTotalColIndex || i == visaTotalColIndex)
+                {
+                    // Simple SUM for cash/visa columns
+                    reportSheet.Cell(summaryRow, i).FormulaA1 = $"SUM({dataRange})";
+                }
+                else
+                {
+                    // SUMIFS for other columns
+                    reportSheet.Cell(summaryRow, i).FormulaA1 = $"SUMIFS({dataRange}, {criteriaRange}, \"لا\")";
+                }
                 reportSheet.Cell(summaryRow, i).Style.Font.SetBold(true);
             }
 
