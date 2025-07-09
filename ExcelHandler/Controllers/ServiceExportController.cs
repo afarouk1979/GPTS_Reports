@@ -428,12 +428,12 @@ public class ServiceExportController : ControllerBase
         // Adjust column widths
         fundSheet.Columns().AdjustToContents();
     }
-
     [HttpGet("export")]
+
     public async Task<IActionResult> ExportToExcel(
-            [FromQuery] string? memberCode = null,
-            [FromQuery] string? receiptId = null,
-            [FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
+    [FromQuery] string? memberCode = null,
+    [FromQuery] string? receiptId = null,
+    [FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
     {
         try
         {
@@ -521,8 +521,8 @@ public class ServiceExportController : ControllerBase
                 using var emptyMemoryStream = new MemoryStream();
                 emptyWorkbook.SaveAs(emptyMemoryStream);
                 return File(emptyMemoryStream.ToArray(),
-                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                           "EmptyReport.xlsx");
+                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         "EmptyReport.xlsx");
             }
             // --- 3.1 Process Cancellation Status ---
             if (dataTable.Columns.Contains("cancelled") && dataTable.Columns.Contains("printed"))
@@ -613,19 +613,25 @@ public class ServiceExportController : ControllerBase
             int colIndex = 12;
             var serviceColumns = new Dictionary<string, int>();
             var mergedColumnsToShow = new List<string> { "كارنية", "رسم القيد", "إنهاء إجراءات", "دمغة علاج طبيعى" };
+            // تحديد الأعمدة التي يجب إظهارها دائمًا (مثل المصروفات الإدارية)
+            var forceIncludeColumns = new List<string> { "_مصروفات_اداريه" };
+
             foreach (DataColumn column in dataTable.Columns)
             {
                 string columnName = column.ColumnName.Replace("\n", " ").Trim();
                 bool shouldInclude = false;
-                if (mergedColumnsToShow.Contains(columnName)
-                    || columnName.StartsWith("_"))
+
+                if (mergedColumnsToShow.Contains(columnName) || columnName.StartsWith("_"))
                 {
-                    if (dataTable.AsEnumerable().Any(r =>
-                        r[column] != DBNull.Value && Convert.ToDouble(r[column]) > 0))
+                    // تضمين الأعمدة الإجبارية حتى لو كانت قيمها صفر
+                    if (forceIncludeColumns.Contains(columnName) ||
+                        dataTable.AsEnumerable().Any(r =>
+                            r[column] != DBNull.Value && Convert.ToDouble(r[column]) > 0))
                     {
                         shouldInclude = true;
                     }
                 }
+
                 if (shouldInclude)
                 {
                     string displayName = columnName.StartsWith("_")
@@ -655,15 +661,15 @@ public class ServiceExportController : ControllerBase
             var pensionColumnsDict = new Dictionary<string, double>();
             // Base columns patterns
             string[] baseColumnsArray = {
-                "_استمارة",
-                "_NextNextYearCalculation",
-                $"_اشتراك مقدم سنة{DateTime.Now.Year + 1}",
-                $"_اشتراك مقدم سنة{DateTime.Now.Year + 2}",
-                "_تحويل_اخصائى",
-                "رسم القيد",
-                "_سنوات_سابقه",
-                "_العام_الحالى"
-            };
+            "_استمارة",
+            "_NextNextYearCalculation",
+            $"_اشتراك مقدم سنة{DateTime.Now.Year + 1}",
+            $"_اشتراك مقدم سنة{DateTime.Now.Year + 2}",
+            "_تحويل_اخصائى",
+            "رسم القيد",
+            "_سنوات_سابقه",
+            "_العام_الحالى"
+        };
             foreach (DataRow dataRow in dataTable.Rows)
             {
                 bool isCancelled = dataRow["لاغى"] != DBNull.Value &&
@@ -728,19 +734,22 @@ public class ServiceExportController : ControllerBase
                 // Calculate Cash and Visa totals
                 double cashTotal = 0;
                 double visaTotal = 0;
+
                 if (!isCancelled)
                 {
                     bool isCashRow = true;
+                    // التحقق من وجود عمود المصروفات الإدارية
                     if (dataTable.Columns.Contains("_مصروفات_اداريه"))
                     {
                         object adminExpValue = dataRow["_مصروفات_اداريه"];
                         if (adminExpValue != DBNull.Value &&
                             !string.IsNullOrWhiteSpace(adminExpValue.ToString()) &&
-                            Convert.ToDecimal(adminExpValue) != 0)
+                            Convert.ToDouble(adminExpValue) > 0)
                         {
                             isCashRow = false;
                         }
                     }
+
                     if (isCashRow)
                     {
                         cashTotal = rowTotal;
@@ -818,8 +827,61 @@ public class ServiceExportController : ControllerBase
                 reportSheet.Cell(summaryRow, i).Style.Font.SetBold(true);
             }
 
+            // --- 8.5: Add Cash and Visa Total Rows ---
+            int cashTotalRow = summaryRow + 1;
+            int visaTotalRow = summaryRow + 2;
+
+            // إجمالى الكاش
+            reportSheet.Cell(cashTotalRow, 1).Value = "إجمالى الكاش";
+            reportSheet.Range(cashTotalRow, 1, cashTotalRow, 11).Merge().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            reportSheet.Cell(cashTotalRow, 1).Style.Font.SetBold(true);
+
+            // إجمالى الفيزا
+            reportSheet.Cell(visaTotalRow, 1).Value = "إجمالى الفيزا";
+            reportSheet.Range(visaTotalRow, 1, visaTotalRow, 11).Merge().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            reportSheet.Cell(visaTotalRow, 1).Style.Font.SetBold(true);
+
+            // حساب الإجماليات
+            string adminColLetter = "";
+            string adminRange = "";
+            if (dataTable.Columns.Contains("_مصروفات_اداريه") && serviceColumns.ContainsKey("_مصروفات_اداريه"))
+            {
+                int adminColIndex = serviceColumns["_مصروفات_اداريه"];
+                adminColLetter = reportSheet.Column(adminColIndex).ColumnLetter();
+                adminRange = $"{adminColLetter}{headerRow + 1}:{adminColLetter}{currentRow - 1}";
+            }
+
+            for (int i = 12; i <= visaTotalColIndex; i++)
+            {
+                string colLetter = reportSheet.Column(i).ColumnLetter();
+                string dataRange = $"{colLetter}{headerRow + 1}:{colLetter}{currentRow - 1}";
+
+                // صيغة إجمالى الكاش: صفوف غير ملغاة + مصروفات إدارية = 0
+                string cashFormula = "";
+                // صيغة إجمالي الفيزا: صفوف غير ملغاة + مصروفات إدارية > 0
+                string visaFormula = "";
+
+                if (!string.IsNullOrEmpty(adminRange))
+                {
+                    cashFormula = $"SUMIFS({dataRange}, {criteriaRange}, \"لا\", {adminRange}, 0)";
+                    visaFormula = $"SUMIFS({dataRange}, {criteriaRange}, \"لا\", {adminRange}, \">0\")";
+                }
+                else
+                {
+                    // إذا لم يكن عمود المصروفات موجوداً
+                    cashFormula = $"SUMIFS({dataRange}, {criteriaRange}, \"لا\")";
+                    visaFormula = "0";
+                }
+
+                reportSheet.Cell(cashTotalRow, i).FormulaA1 = cashFormula;
+                reportSheet.Cell(cashTotalRow, i).Style.Font.SetBold(true);
+
+                reportSheet.Cell(visaTotalRow, i).FormulaA1 = visaFormula;
+                reportSheet.Cell(visaTotalRow, i).Style.Font.SetBold(true);
+            }
+
             // --- 9. Add the detailed summary section with fund calculations ---
-            int lastFundRow = CreateSummarySection(reportSheet, summaryRow, serviceColumns, headerRow, currentRow, totalColIndex, dataTable);
+            int lastFundRow = CreateSummarySection(reportSheet, visaTotalRow, serviceColumns, headerRow, currentRow, totalColIndex, dataTable);
 
             // --- 10. Add Cash/Visa/Grand Total Summary ---
             int cashVisaSummaryRow = lastFundRow + 2;
@@ -851,8 +913,8 @@ public class ServiceExportController : ControllerBase
             workbook.SaveAs(reportMemoryStream);
             var content = reportMemoryStream.ToArray();
             return File(content,
-                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                       $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
         }
         catch (Exception ex)
         {

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ExcelHandler")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e76f57910e1b1e328fa438978afae082c011040c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7d3d6478c488facb2bb9258e1c7fa85cd2925caf")]
 [assembly: System.Reflection.AssemblyProductAttribute("ExcelHandler")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ExcelHandler")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
