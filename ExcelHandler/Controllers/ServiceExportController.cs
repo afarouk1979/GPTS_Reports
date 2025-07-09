@@ -149,7 +149,7 @@ public class ServiceExportController : ControllerBase
         }
     }
 
-    private void CreateSummarySection(IXLWorksheet reportSheet, int summaryRow, Dictionary<string, int> serviceColumns,
+    private int CreateSummarySection(IXLWorksheet reportSheet, int summaryRow, Dictionary<string, int> serviceColumns,
         int headerRow, int currentRow, int totalColIndex, DataTable dataTable)
     {
         // Define base columns for fund calculations
@@ -312,6 +312,121 @@ public class ServiceExportController : ControllerBase
 
         // Format all rows for right-to-left display
         reportSheet.Range(cancelledSummaryRow, 1, pensionFundRow, totalColIndex).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+
+        return pensionFundRow;
+    }
+
+    private void CreateFundsSheet(IXLWorkbook workbook, double baseTotal, double otherTotal, double pensionsTotal,
+                                  Dictionary<string, double> baseColumnsDict, Dictionary<string, double> otherColumnsDict,
+                                  Dictionary<string, double> pensionColumnsDict)
+    {
+        var fundSheet = workbook.Worksheets.Add("صندوق النقابة و المعاشات");
+        fundSheet.RightToLeft = true;
+
+        // Union Fund Section
+        fundSheet.Cell(1, 1).Value = "صندوق النقابة";
+        fundSheet.Cell(1, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(1, 1).Style.Fill.SetBackgroundColor(XLColor.LightGray);
+        fundSheet.Range(1, 1, 1, 4).Merge();
+
+        int currentRow = 2;
+        fundSheet.Cell(currentRow, 1).Value = "الأعمدة الأساسية (50%)";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 2).Value = "القيمة";
+        fundSheet.Cell(currentRow, 2).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 3).Value = "المعادلة";
+        fundSheet.Cell(currentRow, 3).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 4).Value = "الإجمالي";
+        fundSheet.Cell(currentRow, 4).Style.Font.SetBold(true);
+        currentRow++;
+
+        foreach (var kvp in baseColumnsDict)
+        {
+            string displayName = kvp.Key.StartsWith("_") ? kvp.Key.Substring(1) : kvp.Key;
+            fundSheet.Cell(currentRow, 1).Value = displayName;
+            fundSheet.Cell(currentRow, 2).Value = kvp.Value;
+            fundSheet.Cell(currentRow, 3).Value = "عمود أساسي";
+            currentRow++;
+        }
+
+        fundSheet.Cell(currentRow, 1).Value = "مجموع الأعمدة الأساسية";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 2).Value = baseTotal;
+        fundSheet.Cell(currentRow, 3).Value = "مجموع";
+        fundSheet.Cell(currentRow, 4).Value = baseTotal;
+        currentRow++;
+
+        fundSheet.Cell(currentRow, 1).Value = "نصف الأساسيات";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 2).Value = baseTotal / 2;
+        fundSheet.Cell(currentRow, 3).Value = "الأساسيات ÷ 2";
+        currentRow++;
+
+        fundSheet.Cell(currentRow, 1).Value = "الأعمدة الأخرى";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        currentRow++;
+
+        foreach (var kvp in otherColumnsDict)
+        {
+            string displayName = kvp.Key.StartsWith("_") ? kvp.Key.Substring(1) : kvp.Key;
+            fundSheet.Cell(currentRow, 1).Value = displayName;
+            fundSheet.Cell(currentRow, 2).Value = kvp.Value;
+            fundSheet.Cell(currentRow, 3).Value = "عمود آخر";
+            currentRow++;
+        }
+
+        fundSheet.Cell(currentRow, 1).Value = "مجموع الأعمدة الأخرى";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 2).Value = otherTotal;
+        fundSheet.Cell(currentRow, 3).Value = "مجموع";
+        currentRow++;
+
+        fundSheet.Cell(currentRow, 1).Value = "إجمالي صندوق النقابة";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 2).Value = (baseTotal / 2) + otherTotal;
+        fundSheet.Cell(currentRow, 3).Value = "نصف الأساسيات + الأعمدة الأخرى";
+        currentRow += 2;
+
+        // Pension Fund Section
+        fundSheet.Cell(currentRow, 1).Value = "صندوق المعاشات";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 1).Style.Fill.SetBackgroundColor(XLColor.LightGray);
+        fundSheet.Range(currentRow, 1, currentRow, 4).Merge();
+        currentRow++;
+
+        fundSheet.Cell(currentRow, 1).Value = "نصف الأساسيات (50%)";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 2).Value = baseTotal / 2;
+        fundSheet.Cell(currentRow, 3).Value = "الأساسيات ÷ 2";
+        currentRow++;
+
+        fundSheet.Cell(currentRow, 1).Value = "أعمدة المعاشات";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        currentRow++;
+
+        foreach (var kvp in pensionColumnsDict)
+        {
+            string displayName = kvp.Key.StartsWith("_") ? kvp.Key.Substring(1) : kvp.Key;
+            fundSheet.Cell(currentRow, 1).Value = displayName;
+            fundSheet.Cell(currentRow, 2).Value = kvp.Value;
+            fundSheet.Cell(currentRow, 3).Value = "عمود معاشات";
+            currentRow++;
+        }
+
+        fundSheet.Cell(currentRow, 1).Value = "مجموع أعمدة المعاشات";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 2).Value = pensionsTotal;
+        fundSheet.Cell(currentRow, 3).Value = "مجموع";
+        currentRow++;
+
+        fundSheet.Cell(currentRow, 1).Value = "إجمالي صندوق المعاشات";
+        fundSheet.Cell(currentRow, 1).Style.Font.SetBold(true);
+        fundSheet.Cell(currentRow, 2).Value = (baseTotal / 2) + pensionsTotal;
+        fundSheet.Cell(currentRow, 3).Value = "نصف الأساسيات + أعمدة المعاشات";
+        currentRow++;
+
+        // Adjust column widths
+        fundSheet.Columns().AdjustToContents();
     }
 
     [HttpGet("export")]
@@ -534,6 +649,21 @@ public class ServiceExportController : ControllerBase
             reportSheet.Range(headerRow, 1, headerRow, visaTotalColIndex).Style.Font.SetBold(true).Fill.SetBackgroundColor(XLColor.LightGray);
             // --- 7. Populate Report Data with Tafkeet ---
             int currentRow = headerRow + 1;
+            // Dictionaries for fund breakdown
+            var baseColumnsDict = new Dictionary<string, double>();
+            var otherColumnsDict = new Dictionary<string, double>();
+            var pensionColumnsDict = new Dictionary<string, double>();
+            // Base columns patterns
+            string[] baseColumnsArray = {
+                "_استمارة",
+                "_NextNextYearCalculation",
+                $"_اشتراك مقدم سنة{DateTime.Now.Year + 1}",
+                $"_اشتراك مقدم سنة{DateTime.Now.Year + 2}",
+                "_تحويل_اخصائى",
+                "رسم القيد",
+                "_سنوات_سابقه",
+                "_العام_الحالى"
+            };
             foreach (DataRow dataRow in dataTable.Rows)
             {
                 bool isCancelled = dataRow["لاغى"] != DBNull.Value &&
@@ -619,6 +749,38 @@ public class ServiceExportController : ControllerBase
                     {
                         visaTotal = rowTotal;
                     }
+
+                    // Accumulate fund breakdown for cash rows
+                    if (isCashRow)
+                    {
+                        foreach (var service in serviceColumns)
+                        {
+                            string columnName = service.Key;
+                            double value = dataRow[columnName] != DBNull.Value ? Convert.ToDouble(dataRow[columnName]) : 0;
+
+                            if (baseColumnsArray.Any(bc => columnName.EndsWith(bc)))
+                            {
+                                if (baseColumnsDict.ContainsKey(columnName))
+                                    baseColumnsDict[columnName] += value;
+                                else
+                                    baseColumnsDict[columnName] = value;
+                            }
+                            else if (columnName.Contains("معاشات"))
+                            {
+                                if (pensionColumnsDict.ContainsKey(columnName))
+                                    pensionColumnsDict[columnName] += value;
+                                else
+                                    pensionColumnsDict[columnName] = value;
+                            }
+                            else
+                            {
+                                if (otherColumnsDict.ContainsKey(columnName))
+                                    otherColumnsDict[columnName] += value;
+                                else
+                                    otherColumnsDict[columnName] = value;
+                            }
+                        }
+                    }
                 }
                 reportSheet.Cell(currentRow, cashTotalColIndex).Value = cashTotal;
                 reportSheet.Cell(currentRow, visaTotalColIndex).Value = visaTotal;
@@ -657,9 +819,33 @@ public class ServiceExportController : ControllerBase
             }
 
             // --- 9. Add the detailed summary section with fund calculations ---
-            CreateSummarySection(reportSheet, summaryRow, serviceColumns, headerRow, currentRow, totalColIndex, dataTable);
+            int lastFundRow = CreateSummarySection(reportSheet, summaryRow, serviceColumns, headerRow, currentRow, totalColIndex, dataTable);
 
-            // --- 10. Finalize and Return File ---
+            // --- 10. Add Cash/Visa/Grand Total Summary ---
+            int cashVisaSummaryRow = lastFundRow + 2;
+            reportSheet.Cell(cashVisaSummaryRow, 1).Value = "إجمالي الكاش";
+            reportSheet.Cell(cashVisaSummaryRow, 1).Style.Font.SetBold(true);
+            reportSheet.Cell(cashVisaSummaryRow, totalColIndex).FormulaA1 = $"={reportSheet.Cell(summaryRow, cashTotalColIndex).Address}";
+            reportSheet.Cell(cashVisaSummaryRow, totalColIndex).Style.Font.SetBold(true);
+
+            reportSheet.Cell(cashVisaSummaryRow + 1, 1).Value = "إجمالي الفيزا";
+            reportSheet.Cell(cashVisaSummaryRow + 1, 1).Style.Font.SetBold(true);
+            reportSheet.Cell(cashVisaSummaryRow + 1, totalColIndex).FormulaA1 = $"={reportSheet.Cell(summaryRow, visaTotalColIndex).Address}";
+            reportSheet.Cell(cashVisaSummaryRow + 1, totalColIndex).Style.Font.SetBold(true);
+
+            reportSheet.Cell(cashVisaSummaryRow + 2, 1).Value = "الاجمالي الكلي";
+            reportSheet.Cell(cashVisaSummaryRow + 2, 1).Style.Font.SetBold(true);
+            reportSheet.Cell(cashVisaSummaryRow + 2, totalColIndex).FormulaA1 =
+                $"={reportSheet.Cell(cashVisaSummaryRow, totalColIndex).Address} + {reportSheet.Cell(cashVisaSummaryRow + 1, totalColIndex).Address}";
+            reportSheet.Cell(cashVisaSummaryRow + 2, totalColIndex).Style.Font.SetBold(true);
+
+            // --- 11. Create Funds Breakdown Sheet ---
+            double baseTotal = baseColumnsDict.Values.Sum();
+            double otherTotal = otherColumnsDict.Values.Sum();
+            double pensionsTotal = pensionColumnsDict.Values.Sum();
+            CreateFundsSheet(workbook, baseTotal, otherTotal, pensionsTotal, baseColumnsDict, otherColumnsDict, pensionColumnsDict);
+
+            // --- 12. Finalize and Return File ---
             reportSheet.Columns().AdjustToContents();
             using var reportMemoryStream = new MemoryStream();
             workbook.SaveAs(reportMemoryStream);
