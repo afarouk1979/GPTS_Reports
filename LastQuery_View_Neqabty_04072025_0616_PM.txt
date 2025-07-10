@@ -437,13 +437,13 @@ BEGIN
                 TRY_CAST(MRCD.PreviousYear AS DECIMAL(18,2)) AS [_سنوات_سابقه],
                 TRY_CAST(MRCD.CurrentYear AS DECIMAL(18,2)) AS [_العام_الحالى],
                 TRY_CAST(MRCD.EndProcedures AS DECIMAL(18,2)) AS [__انهاء_اجراءات],
-                TRY_CAST(MRCD.PensionsDevelopment AS DECIMAL(18,2)) AS [_تنميه_موارد],
+                NULL AS  [_تنميه_موارد],
                 NULL AS [_مصروفات_اداريه],
                 NULL AS [_تسجيل_مركز],
                 NULL AS [_مبلغ_لدفعة_النقدية_المتقدمة], NULL AS [_دمغة_علاج_طبيعى],
                 TRY_CAST(MRCD.PractitionerFee AS DECIMAL(18,2)) AS [_رسوم_ممارس],
                 TRY_CAST(MRCD.Form AS DECIMAL(18,2)) AS [_استمارة],
-                NULL AS [_تنميه_معاشات],
+                TRY_CAST(MRCD.PensionsDevelopment AS DECIMAL(18,2)) AS [_تنميه_معاشات],
                 TRY_CAST(MRCD.MedicalProject AS DECIMAL(18,2)) AS [_مشروع_علاجي],
                 NULL AS [_غرامه_جمعيه_عمويه], NULL AS [_غرامة_تسجيل],
                 NULL AS [_اعاده_تسجيل],
@@ -841,3 +841,4 @@ BEGIN
     END CATCH
 END;
 GO
+--EXEC GenerateServiceEditView;
