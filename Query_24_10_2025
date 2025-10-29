@@ -9,23 +9,12 @@ BEGIN
             @query AS NVARCHAR(MAX),
             @ConsultationCount INT,
             @ServiceCount INT;
--------------------------
-			DECLARE 
-    @PractitionerFees DECIMAL(18,2),
-    @SpecialistFees72 DECIMAL(18,2),
-    @SpecialistFees144 DECIMAL(18,2);
-
-SELECT TOP 1
-    @PractitionerFees = PractitionerFees,
-    @SpecialistFees72 = SpecialistFees72,
-    @SpecialistFees144 = SpecialistFees144
-FROM dbo.AnnualFees
-WHERE [Year] = YEAR(GETDATE()) + 2;
------------------------
     
     CREATE TABLE #DistinctServices (CleanedServiceName NVARCHAR(255));
     
     INSERT INTO #DistinctServices (CleanedServiceName)
+
+
     SELECT DISTINCT
         CASE
             WHEN ServiceName IS NULL OR ServiceName = '' THEN N'_UnknownService'
@@ -45,7 +34,34 @@ WHERE [Year] = YEAR(GETDATE()) + 2;
         FROM dbo.MemberServicesDetailsTracking MST
         WHERE MST.ServiceName IS NOT NULL AND MST.ServiceName != ''
     ) AS AllServiceNames;
-    
+    -------------------------------
+	DELETE FROM #DistinctServices 
+WHERE CleanedServiceName IN (
+    N'_ملف_تراخيص__',
+    N'_كارنيه',
+    N'_سنوات_سابقه',
+    N'_العام_الحالى',
+    N'__انهاء_اجراءات',
+    N'_تنميه_موارد',
+    N'_مصروفات_اداريه',
+    N'_تسجيل_مركز',
+    N'_مبلغ_لدفعة_النقدية_المتقدمة',
+    N'_دمغة_علاج_طبيعى',
+    N'_رسوم_ممارس',
+    N'_استمارة',
+    N'_تنميه_معاشات',
+    N'_مشروع_علاجي',
+    N'_غرامه_جمعيه_عمويه',
+    N'_غرامة_تسجيل',
+    N'_اعاده_تسجيل',
+    N'_تحويل_اخصائى',
+    N'_تحويل_استشارى',
+    N'_شهادة_استشارى',
+    N'_رسم_القيد'
+);
+
+	---------------------
+
     SELECT @ServiceCount = COUNT(*) FROM #DistinctServices;
     
     DECLARE @ServiceName NVARCHAR(255);
@@ -165,63 +181,41 @@ WHERE [Year] = YEAR(GETDATE()) + 2;
                 MA.Serial AS [Serial],
                 MA.DateTo AS [DateTo],
                 MA.UserID AS [UserID],
-                CASE 
-    WHEN ISDATE(MAT.DateTo) = 1 
-         AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL 
-         AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE())
-    THEN 1 
-    ELSE 0 
-END AS [IsCurrentYear],
-
-CASE 
-    -- السنة القادمة (+1)
-    WHEN ISDATE(MAT.DateTo) = 1 
-         AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL 
-         AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 1
-    THEN MAT.UpfrontYearCost
-
-    -- بعد سنتين (+2)
-    WHEN ISDATE(MAT.DateTo) = 1 
-         AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL 
-         AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
-    THEN 
-        CASE 
-            WHEN MAT.UpfrontYearCost = @SpecialistFees72
-                THEN @PractitionerFees
-            WHEN MAT.UpfrontYearCost = @SpecialistFees72 + @PractitionerFees
-                THEN @PractitionerFees
-            WHEN MAT.UpfrontYearCost = @SpecialistFees144
-                THEN @SpecialistFees72
-            WHEN MAT.UpfrontYearCost = (@SpecialistFees144 + @SpecialistFees72)
-                THEN @SpecialistFees72
-            WHEN MAT.UpfrontYearCost = (@SpecialistFees144 * 2)
-                THEN @SpecialistFees144
-            ELSE 0
-        END
-    ELSE 0
-END AS [_NextYearCalculation],
-
-CASE 
-    -- بعد سنتين فقط (+2)
-    WHEN ISDATE(MAT.DateTo) = 1 
-         AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL 
-         AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
-    THEN 
-        CASE 
-            WHEN MAT.UpfrontYearCost = @SpecialistFees72
-                THEN @PractitionerFees
-            WHEN MAT.UpfrontYearCost = @SpecialistFees72 + @PractitionerFees
-                THEN @SpecialistFees72
-            WHEN MAT.UpfrontYearCost = @SpecialistFees144
-                THEN @SpecialistFees72
-            WHEN MAT.UpfrontYearCost = (@SpecialistFees144 + @SpecialistFees72)
-                THEN @SpecialistFees144
-            WHEN MAT.UpfrontYearCost = (@SpecialistFees144 * 2)
-                THEN @SpecialistFees144
-            ELSE 0
-        END
-    ELSE 0
-END AS [_NextNextYearCalculation],
+                CASE
+                    WHEN ISDATE(MA.DateTo) = 1
+                        AND TRY_CONVERT(DATE, MA.DateTo, 103) IS NOT NULL
+                        AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE())
+                    THEN 1
+                    ELSE 0
+                END AS [IsCurrentYear],
+                CASE
+                    WHEN ISDATE(MA.DateTo) = 1
+                        AND TRY_CONVERT(DATE, MA.DateTo, 103) IS NOT NULL
+                        AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE()) + 1
+                    THEN MA.UpfrontYearCost                    
+                    WHEN ISDATE(MA.DateTo) = 1
+                        AND TRY_CONVERT(DATE, MA.DateTo, 103) IS NOT NULL
+                        AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE()) + 2
+                    THEN 
+                    CASE 
+                        WHEN MA.UpfrontYearCost  = 108.00 THEN 36.00
+                        WHEN MA.UpfrontYearCost  = 216.00 THEN 72.00
+                        ELSE MA.UpfrontYearCost/2
+                    END
+                    ELSE 0
+                END AS [_NextYearCalculation],
+                CASE
+                    WHEN ISDATE(MA.DateTo) = 1
+                        AND TRY_CONVERT(DATE, MA.DateTo, 103) IS NOT NULL
+                        AND YEAR(TRY_CONVERT(DATE, MA.DateTo, 103)) = YEAR(GETDATE()) + 2
+                    THEN 
+                    CASE 
+                        WHEN MA.UpfrontYearCost = 108.00 THEN 72.00
+                        WHEN MA.UpfrontYearCost = 216.00 THEN 144.00
+                        ELSE MA.UpfrontYearCost/2
+                    END
+                    ELSE 0
+                END AS [_NextNextYearCalculation],
                 NULL AS Printed,
                 NULL AS DelUser,
                 NULL AS DelDate,
@@ -231,7 +225,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MA.UserID = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
-            WHERE (TotalAmount <> 0 Or TotalAmount is Not Null) AND MA.Userdate > ''2025-06-15''
+            WHERE (TotalAmount <> 0 Or TotalAmount is Not Null) AND MA.Userdate > ''2025-10-27''
             UNION ALL
             SELECT
                 MAT.ReceiptNo AS ReceiptID, MAT.MemberCode, MD.Name AS MemberName,
@@ -255,63 +249,30 @@ END AS [_NextNextYearCalculation],
                 TRY_CAST(MAT.RegistrationFees AS DECIMAL(18,2)) AS [_رسم_القيد],
                 CAST(1 AS INT) AS cancelled, CAST(1 AS INT) AS FlagFundType,
                 MAT.Serial AS [Serial], MAT.DateTo AS [DateTo], MAT.UserID AS [UserID],
-                CASE 
-    WHEN ISDATE(MAT.DateTo) = 1 
-         AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL 
-         AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE())
-    THEN 1 
-    ELSE 0 
-END AS [IsCurrentYear],
-
-CASE 
-    -- السنة القادمة (+1)
-    WHEN ISDATE(MAT.DateTo) = 1 
-         AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL 
-         AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 1
-    THEN MAT.UpfrontYearCost
-
-    -- بعد سنتين (+2)
-    WHEN ISDATE(MAT.DateTo) = 1 
-         AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL 
-         AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
-    THEN 
-        CASE 
-            WHEN MAT.UpfrontYearCost = @SpecialistFees72
-                THEN @PractitionerFees
-            WHEN MAT.UpfrontYearCost = @SpecialistFees72 + @PractitionerFees
-                THEN @PractitionerFees
-            WHEN MAT.UpfrontYearCost = @SpecialistFees144
-                THEN @SpecialistFees72
-            WHEN MAT.UpfrontYearCost = (@SpecialistFees144 + @SpecialistFees72)
-                THEN @SpecialistFees72
-            WHEN MAT.UpfrontYearCost = (@SpecialistFees144 * 2)
-                THEN @SpecialistFees144
-            ELSE 0
-        END
-    ELSE 0
-END AS [_NextYearCalculation],
-
-CASE 
-    -- بعد سنتين فقط (+2)
-    WHEN ISDATE(MAT.DateTo) = 1 
-         AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL 
-         AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
-    THEN 
-        CASE 
-            WHEN MAT.UpfrontYearCost = @SpecialistFees72
-                THEN @PractitionerFees
-            WHEN MAT.UpfrontYearCost = @SpecialistFees72 + @PractitionerFees
-                THEN @SpecialistFees72
-            WHEN MAT.UpfrontYearCost = @SpecialistFees144
-                THEN @SpecialistFees72
-            WHEN MAT.UpfrontYearCost = (@SpecialistFees144 + @SpecialistFees72)
-                THEN @SpecialistFees144
-            WHEN MAT.UpfrontYearCost = (@SpecialistFees144 * 2)
-                THEN @SpecialistFees144
-            ELSE 0
-        END
-    ELSE 0
-END AS [_NextNextYearCalculation],
+                CASE WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
+                     AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE())
+                     THEN 1 ELSE 0 END AS [IsCurrentYear],
+                CASE WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
+                     AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 1
+                     THEN MAT.UpfrontYearCost
+                     WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
+                     AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
+                     THEN 
+                     CASE 
+                        WHEN MAT.UpfrontYearCost = 108.00 THEN 36.00
+                        WHEN MAT.UpfrontYearCost = 216.00 THEN 72.00
+                        ELSE MAT.UpfrontYearCost/2
+                    END
+                     ELSE 0 END AS [_NextYearCalculation],
+                CASE WHEN ISDATE(MAT.DateTo) = 1 AND TRY_CONVERT(DATE, MAT.DateTo, 103) IS NOT NULL
+                     AND YEAR(TRY_CONVERT(DATE, MAT.DateTo, 103)) = YEAR(GETDATE()) + 2
+                     THEN 
+                     CASE 
+                        WHEN MAT.UpfrontYearCost = 108.00 THEN 72.00
+                        WHEN MAT.UpfrontYearCost = 216.00 THEN 144.00
+                        ELSE MAT.UpfrontYearCost/2
+                    END
+                     ELSE 0 END AS [_NextNextYearCalculation],
                 MAT.Printed AS Printed,
                 MAT.DelUser AS DelUser,
                 MAT.DelDate AS DelDate,
@@ -322,7 +283,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Users U ON MAT.UserID = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON MAT.DelUser = U_Del.ID
-            WHERE MAT.Userdate > ''2025-06-15''
+            WHERE MAT.Userdate > ''2025-10-27''
             UNION ALL
             SELECT
                 MS.ReceiptID,
@@ -373,7 +334,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MS.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
-            WHERE MS.ServiceName IS NOT NULL AND MS.ServiceName != '''' AND MS.AddDate > ''2025-06-15''
+            WHERE MS.ServiceName IS NOT NULL AND MS.ServiceName != '''' AND MS.AddDate > ''2025-10-27''
             UNION ALL
             SELECT
                 MST.ReceiptID,
@@ -425,7 +386,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Users U ON MST.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON MST.DelUser = U_Del.ID
-            WHERE MST.ServiceName IS NOT NULL AND MST.ServiceName != '''' AND MST.AddDate > ''2025-06-15''
+            WHERE MST.ServiceName IS NOT NULL AND MST.ServiceName != '''' AND MST.AddDate > ''2025-10-27''
             UNION ALL
             SELECT
                 MSAD.ReceiptID,
@@ -476,7 +437,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MSAD.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
-            WHERE S.ServiceName IS NOT NULL AND S.ServiceName != '''' AND MSAD.Adddate > ''2025-06-15''
+            WHERE S.ServiceName IS NOT NULL AND S.ServiceName != '''' AND MSAD.Adddate > ''2025-10-27''
             UNION ALL
             SELECT
                 MRC.ReceiptID, MRC.MemberCode, MD.Name AS MemberName,
@@ -512,7 +473,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MRC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
-            WHERE MRC.Adddate > ''2025-06-15''
+            WHERE MRC.Adddate > ''2025-10-27''
             UNION ALL
             SELECT
                 MRCD.ReceiptID, MRCD.MemberCode, MD.Name AS MemberName,
@@ -549,7 +510,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Users U ON MRCD.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON MRCD.DelUser = U_Del.ID
-            WHERE MRCD.Adddate > ''2025-06-15''
+            WHERE MRCD.Adddate > ''2025-10-27''
             UNION ALL
             SELECT
                 CAC.ReceiptNo AS ReceiptID, CAC.MemberCode, MD.Name AS MemberName,
@@ -579,7 +540,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.MemberData MD ON CAC.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Branch B ON CAC.BranchID = B.BranchID
-            WHERE CAC.Userdate > ''2025-06-15''
+            WHERE CAC.Userdate > ''2025-10-27''
             UNION ALL
             SELECT
                 CACT.ReceiptNo AS ReceiptID, CACT.MemberCode, MD.Name AS MemberName,
@@ -610,7 +571,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON CACT.DelUser = U_Del.ID
-            WHERE CACT.Userdate > ''2025-06-15''
+            WHERE CACT.Userdate > ''2025-10-27''
             UNION ALL
             SELECT
                 RR.ReceiptID, M.MemberCode, RR.MemberName,
@@ -645,7 +606,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON M.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON RR.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
-            WHERE RR.AddDate > ''2025-06-15''
+            WHERE RR.AddDate > ''2025-10-27''
             UNION ALL
             SELECT
                 RRT.ReceiptID, M.MemberCode, RRT.MemberName,
@@ -681,7 +642,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Users U ON RRT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON RRT.DelUser = U_Del.ID
-            WHERE RRT.AddDate > ''2025-06-15''
+            WHERE RRT.AddDate > ''2025-10-27''
             UNION ALL
             SELECT
                 MC.ReceiptID, MC.MemberCode, MD.Name AS MemberName,
@@ -714,7 +675,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
-            WHERE MC.AddDate > ''2025-06-15''
+            WHERE MC.AddDate > ''2025-10-27''
             UNION ALL
             SELECT
                 CC.ReceiptID, CC.MemberCode, MD.Name AS MemberName,
@@ -748,7 +709,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON CC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
-            WHERE CC.AddDate > ''2025-06-15''
+            WHERE CC.AddDate > ''2025-10-27''
             UNION ALL
             SELECT
                 CCT.ReceiptID, CCT.MemberCode, MD.Name AS MemberName,
@@ -783,7 +744,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Users U ON CCT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON CCT.DelUser = U_Del.ID
-            WHERE CCT.AddDate > ''2025-06-15''
+            WHERE CCT.AddDate > ''2025-10-27''
             UNION ALL
             SELECT
                 MCT.ReceiptID, MCT.MemberCode, MD.Name AS MemberName,
@@ -814,7 +775,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Users U ON MCT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON MCT.DelUser = U_Del.ID
-            WHERE MCT.AddDate > ''2025-06-15''
+            WHERE MCT.AddDate > ''2025-10-27''
             UNION ALL
             SELECT
                 CAC.ReceiptNo AS ReceiptID,
@@ -864,7 +825,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON CAC.UserID = U.ID
             LEFT JOIN dbo.Branch B ON CAC.BranchID = B.BranchID
-            WHERE CAC.Userdate > ''2025-06-15''
+            WHERE CAC.Userdate > ''2025-10-27''
             UNION ALL
             SELECT
                 CACT.ReceiptNo AS ReceiptID,
@@ -915,7 +876,7 @@ END AS [_NextNextYearCalculation],
             LEFT JOIN dbo.Users U ON CACT.UserID = U.ID
             LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON CACT.DelUser = U_Del.ID
-            WHERE CACT.Userdate > ''2025-06-15''
+            WHERE CACT.Userdate > ''2025-10-27''
         ) AS CombinedSourceData
         PIVOT (
             MAX(ServiceFee)
