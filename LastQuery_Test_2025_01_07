@@ -142,6 +142,9 @@ WHERE CleanedServiceName IN (
         ELSE N''
     END + N',
         MAX(Printed) AS Printed,
+        MAX(PrintUser) AS PrintUser,
+        MAX(CAST(PrintUsername AS NVARCHAR(100))) AS PrintUsername,
+        MAX(PrintDate) AS PrintDate,
         MAX(DelUser) AS DelUser,
         MAX(DelDate) AS DelDate,
         MAX(FullName) AS FullName,
@@ -223,6 +226,9 @@ WHERE CleanedServiceName IN (
                     ELSE 0
                 END AS [_NextNextYearCalculation],
                 NULL AS Printed,
+                MA.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                MA.Printdate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -231,6 +237,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MA.UserID = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON MA.PrintUser = U_Print.ID
             WHERE (TotalAmount <> 0 Or TotalAmount is Not Null) AND MA.Userdate > ''2025-10-27''
             
             UNION ALL
@@ -284,6 +291,9 @@ WHERE CleanedServiceName IN (
                     END
                      ELSE 0 END AS [_NextNextYearCalculation],
                 MAT.Printed AS Printed,
+                MAT.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                MAT.Printdate AS PrintDate,
                 MAT.DelUser AS DelUser,
                 MAT.DelDate AS DelDate,
                 U_Del.FullName AS FullName
@@ -293,6 +303,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Users U ON MAT.UserID = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON MAT.DelUser = U_Del.ID
+            LEFT JOIN dbo.Users U_Print ON MAT.PrintUser = U_Print.ID
             WHERE MAT.Userdate > ''2025-10-27''
             
             UNION ALL
@@ -339,6 +350,9 @@ WHERE CleanedServiceName IN (
                 NULL AS _NextYearCalculation,
                 NULL AS _NextNextYearCalculation,
                 NULL AS Printed,
+                MS.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                MS.PrintDate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -348,6 +362,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MS.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON MS.PrintUser = U_Print.ID
             WHERE MS.ServiceName IS NOT NULL AND MS.ServiceName != '''' AND MS.AddDate > ''2025-10-27''
             
             UNION ALL
@@ -398,6 +413,9 @@ WHERE CleanedServiceName IN (
                 NULL AS _NextYearCalculation,
                 NULL AS _NextNextYearCalculation,
                 MST.Printed AS Printed,
+                MST.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                MST.PrintDate AS PrintDate,
                 MST.DelUser AS DelUser,
                 MST.DelDate AS DelDate,
                 U_Del.FullName AS FullName
@@ -408,6 +426,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Users U ON MST.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON MST.DelUser = U_Del.ID
+            LEFT JOIN dbo.Users U_Print ON MST.PrintUser = U_Print.ID
             WHERE S.ServiceName IS NOT NULL AND S.ServiceName != '''' AND MST.AddDate > ''2025-10-27''
             
             UNION ALL
@@ -454,6 +473,9 @@ WHERE CleanedServiceName IN (
                 NULL AS _NextYearCalculation,
                 NULL AS _NextNextYearCalculation,
                 NULL AS Printed,
+                MSAD.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                MSAD.PrintDate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -463,6 +485,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MSAD.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON MSAD.PrintUser = U_Print.ID
             WHERE S.ServiceName IS NOT NULL AND S.ServiceName != '''' AND MSAD.Adddate > ''2025-10-27''
             
             UNION ALL
@@ -495,6 +518,9 @@ WHERE CleanedServiceName IN (
                 MRC.RegisterSerial AS Serial, MRC.GraduationYear AS DateTo, MRC.AddUser AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 NULL AS Printed,
+                MRC.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                MRC.PrintDate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -503,6 +529,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MRC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON MRC.PrintUser = U_Print.ID
             WHERE MRC.Adddate > ''2025-10-27''
             
             UNION ALL
@@ -535,6 +562,9 @@ WHERE CleanedServiceName IN (
                 MRCD.RegisterSerial AS Serial, MRCD.GraduationYear AS DateTo, MRCD.AddUser AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 MRCD.Printed AS Printed,
+                MRCD.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                MRCD.PrintDate AS PrintDate,
                 MRCD.DelUser AS DelUser,
                 MRCD.DelDate AS DelDate,
                 U_Del.FullName AS FullName
@@ -544,6 +574,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Users U ON MRCD.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON MRCD.DelUser = U_Del.ID
+            LEFT JOIN dbo.Users U_Print ON MRCD.PrintUser = U_Print.ID
             WHERE MRCD.Adddate > ''2025-10-27''
             
             UNION ALL
@@ -571,6 +602,9 @@ WHERE CleanedServiceName IN (
                 NULL AS Serial, NULL AS DateTo, CAC.UserID AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 NULL AS Printed,
+                CAC.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                CAC.Printdate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -578,6 +612,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.MemberData MD ON CAC.MemberID = MD.MemberID
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Branch B ON CAC.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON CAC.PrintUser = U_Print.ID
             WHERE CAC.Userdate > ''2025-10-27''
             
             UNION ALL
@@ -605,6 +640,9 @@ WHERE CleanedServiceName IN (
                 NULL AS Serial, NULL AS DateTo, CACT.UserID AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 CACT.Printed AS Printed,
+                CACT.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                CACT.Printdate AS PrintDate,
                 CACT.DelUser AS DelUser,
                 CACT.DelDate AS DelDate,
                 U_Del.FullName AS FullName
@@ -613,6 +651,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON CACT.DelUser = U_Del.ID
+            LEFT JOIN dbo.Users U_Print ON CACT.PrintUser = U_Print.ID
             WHERE CACT.Userdate > ''2025-10-27''
             
             UNION ALL
@@ -644,6 +683,9 @@ WHERE CleanedServiceName IN (
                 NULL AS Serial, NULL AS DateTo, RR.AddUser AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 NULL AS Printed,
+                RR.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                RR.PrintDate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -652,6 +694,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON M.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON RR.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON RR.PrintUser = U_Print.ID
             WHERE RR.AddDate > ''2025-10-27''
             
             UNION ALL
@@ -683,6 +726,9 @@ WHERE CleanedServiceName IN (
                 NULL AS Serial, NULL AS DateTo, RRT.AddUser AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 RRT.Printed AS Printed,
+                RRT.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                RRT.PrintDate AS PrintDate,
                 RRT.DelUser AS DelUser,
                 RRT.DelDate AS DelDate,
                 U_Del.FullName AS FullName
@@ -692,6 +738,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Users U ON RRT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON RRT.DelUser = U_Del.ID
+            LEFT JOIN dbo.Users U_Print ON RRT.PrintUser = U_Print.ID
             WHERE RRT.AddDate > ''2025-10-27''
             
             UNION ALL
@@ -720,6 +767,9 @@ WHERE CleanedServiceName IN (
                 NULL AS Serial, NULL AS DateTo, MC.AddUser AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 NULL AS Printed,
+                MC.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                MC.PrintDate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -728,6 +778,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON MC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON MC.PrintUser = U_Print.ID
             WHERE MC.AddDate > ''2025-10-27''
             
             UNION ALL
@@ -758,6 +809,9 @@ WHERE CleanedServiceName IN (
                 NULL AS Serial, NULL AS DateTo, CC.AddUser AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 NULL AS Printed,
+                CC.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                CC.PrintDate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -766,6 +820,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON CC.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON CC.PrintUser = U_Print.ID
             WHERE CC.AddDate > ''2025-10-27''
             
             UNION ALL
@@ -796,6 +851,9 @@ WHERE CleanedServiceName IN (
                 NULL AS Serial, NULL AS DateTo, CCT.AddUser AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 CCT.Printed AS Printed,
+                CCT.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                CCT.PrintDate AS PrintDate,
                 CCT.DelUser AS DelUser,
                 CCT.DelDate AS DelDate,
                 U_Del.FullName AS FullName
@@ -805,6 +863,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Users U ON CCT.AddUser = U.ID
             LEFT JOIN dbo.Branch B ON U.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON CCT.DelUser = U_Del.ID
+            LEFT JOIN dbo.Users U_Print ON CCT.PrintUser = U_Print.ID
             WHERE CCT.AddDate > ''2025-10-27''
             
             UNION ALL
@@ -831,6 +890,9 @@ WHERE CleanedServiceName IN (
                 NULL AS Serial, NULL AS DateTo, MCT.AddUser AS UserID,
                 NULL AS IsCurrentYear, NULL AS _NextYearCalculation, NULL AS _NextNextYearCalculation,
                 MCT.Printed AS Printed,
+                NULL AS PrintUser,
+                NULL AS PrintUsername,
+                NULL AS PrintDate,
                 MCT.DelUser AS DelUser,
                 MCT.DelDate AS DelDate,
                 U_Del.FullName AS FullName
@@ -886,6 +948,9 @@ WHERE CleanedServiceName IN (
                 NULL AS _NextYearCalculation,
                 NULL AS _NextNextYearCalculation,
                 NULL AS Printed,
+                CAC.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                CAC.Printdate AS PrintDate,
                 NULL AS DelUser,
                 NULL AS DelDate,
                 NULL AS FullName
@@ -894,6 +959,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Governorates G ON MD.GovernrateID = G.GovernrateID
             LEFT JOIN dbo.Users U ON CAC.UserID = U.ID
             LEFT JOIN dbo.Branch B ON CAC.BranchID = B.BranchID
+            LEFT JOIN dbo.Users U_Print ON CAC.PrintUser = U_Print.ID
             WHERE CAC.Userdate > ''2025-10-27''
             
             UNION ALL
@@ -940,6 +1006,9 @@ WHERE CleanedServiceName IN (
                 NULL AS _NextYearCalculation,
                 NULL AS _NextNextYearCalculation,
                 CACT.Printed AS Printed,
+                CACT.PrintUser AS PrintUser,
+                U_Print.FullName AS PrintUsername,
+                CACT.Printdate AS PrintDate,
                 CACT.DelUser AS DelUser,
                 CACT.DelDate AS DelDate,
                 U_Del.FullName AS FullName
@@ -949,6 +1018,7 @@ WHERE CleanedServiceName IN (
             LEFT JOIN dbo.Users U ON CACT.UserID = U.ID
             LEFT JOIN dbo.Branch B ON CACT.BranchID = B.BranchID
             LEFT JOIN dbo.Users U_Del ON CACT.DelUser = U_Del.ID
+            LEFT JOIN dbo.Users U_Print ON CACT.PrintUser = U_Print.ID
             WHERE CACT.Userdate > ''2025-10-27''
         ) AS CombinedSourceData
         PIVOT (
@@ -975,4 +1045,4 @@ END;
 GO
 
 -- To execute the stored procedure, uncomment the line below:
- EXEC GenerateServiceEditView;
+-- EXEC GenerateServiceEditView;
